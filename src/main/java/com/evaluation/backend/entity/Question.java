@@ -11,6 +11,9 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.io.Serializable;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.SequenceGenerator;
 
 @Entity
 @Getter
@@ -24,6 +27,12 @@ public class Question implements Serializable {
     private static final long serialVersionUID = 1L;
 
     @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "question_generator")
+    @SequenceGenerator(
+        name = "question_generator", 
+        sequenceName = "QUE_SEQ", 
+        allocationSize = 1 
+    )
     @Column(name = "ID_QUESTION", nullable = false)
     private Long idQuestion;
 
