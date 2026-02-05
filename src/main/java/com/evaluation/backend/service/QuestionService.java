@@ -5,6 +5,7 @@ import com.evaluation.backend.repository.QuestionRepository;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.stream.Collectors;
+import com.evaluation.backend.entity.Question;
 
 @Service
 public class QuestionService {
@@ -26,4 +27,18 @@ public class QuestionService {
                 ))
                 .toList();
     }
+
+    public Question updateQuestion(Long id, Question questionDetails) {
+
+    return questionRepository.findById(id).map(existingQuestion -> {
+
+        existingQuestion.setType(questionDetails.getType());
+        existingQuestion.setIdQualificatif(questionDetails.getIdQualificatif());
+        existingQuestion.setIntitule(questionDetails.getIntitule());
+        existingQuestion.setNoEnseignant(questionDetails.getNoEnseignant());
+        
+        return questionRepository.save(existingQuestion);
+        
+    }).orElseThrow(() -> new RuntimeException("Question non trouvée avec l'id : " + id));
+}
 }

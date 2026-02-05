@@ -37,4 +37,14 @@ public class QuestionController {
             return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    @PutMapping("/update/{id}")
+    public ResponseEntity<Question> update(@PathVariable Long id, @RequestBody Question questionDetails) {
+        try {
+            Question updatedQuestion = questionService.updateQuestion(id, questionDetails);
+            return ResponseEntity.ok(updatedQuestion);
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
 }
