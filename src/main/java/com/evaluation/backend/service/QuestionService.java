@@ -30,15 +30,22 @@ public class QuestionService {
 
     public Question updateQuestion(Long id, Question questionDetails) {
 
-    return questionRepository.findById(id).map(existingQuestion -> {
+        return questionRepository.findById(id).map(existingQuestion -> {
 
-        existingQuestion.setType(questionDetails.getType());
-        existingQuestion.setIdQualificatif(questionDetails.getIdQualificatif());
-        existingQuestion.setIntitule(questionDetails.getIntitule());
-        existingQuestion.setNoEnseignant(questionDetails.getNoEnseignant());
-        
-        return questionRepository.save(existingQuestion);
-        
-    }).orElseThrow(() -> new RuntimeException("Question non trouvée avec l'id : " + id));
-}
+            existingQuestion.setType(questionDetails.getType());
+            existingQuestion.setIdQualificatif(questionDetails.getIdQualificatif());
+            existingQuestion.setIntitule(questionDetails.getIntitule());
+            existingQuestion.setNoEnseignant(questionDetails.getNoEnseignant());
+            
+            return questionRepository.save(existingQuestion);
+            
+        }).orElseThrow(() -> new RuntimeException("Question non trouvée avec l'id : " + id));
+    }
+
+    public void deleteQuestion(Long id) {
+        if (!questionRepository.existsById(id)) {
+            throw new RuntimeException("Impossible de supprimer : Question non trouvée avec l'id : " + id);
+        }
+        questionRepository.deleteById(id);
+    }
 }

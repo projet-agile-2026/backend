@@ -47,4 +47,14 @@ public class QuestionController {
             return ResponseEntity.notFound().build();
         }
     }
+
+    @DeleteMapping("/delete/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        try {
+            questionService.deleteQuestion(id);
+            return ResponseEntity.noContent().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
 }
