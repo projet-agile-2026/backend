@@ -36,4 +36,5 @@ out/
 ### VS Code ###
 .vscode/
 
+# (Choix volontaire) ignorer ces fichiers
 src/main/resources/application.yaml
