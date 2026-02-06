@@ -1,68 +1,90 @@
 package com.evaluation.backend.service;
 
-import com.evaluation.backend.dto.QualificatifDTO;
+import com.evaluation.backend.dto.CreateQualificatifRequest;
+import com.evaluation.backend.dto.QualificatifDto;
+import com.evaluation.backend.dto.UpdateQualificatifRequest;
 import com.evaluation.backend.entity.Qualificatif;
-import com.evaluation.backend.exception.ResourceNotFoundException;
-import com.evaluation.backend.mapper.QualificatifMapper;
 import com.evaluation.backend.repository.QualificatifRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
-@Transactional
 public class QualificatifService {
 
-    private final QualificatifRepository qualificatifRepository;
-    private final QualificatifMapper qualificatifMapper;
+    private final QualificatifRepository repository;
+    private final QualificatifUsageCounter counter;
 
-    @Transactional(readOnly = true)
-    public List<QualificatifDTO> getAllQualificatifs() {
-        log.debug("Fetching all qualificatifs");
-        List<Qualificatif> qualificatifs = qualificatifRepository.findAll();
-        return qualificatifMapper.toDTOList(qualificatifs);
+    public List<QualificatifDto> getAll() {
+        return repository.findAll().stream()
+                .map(q -> toDto(q, counter.countUsage(q.getIdQualificatif())))
+                .toList();
     }
 
-    @Transactional(readOnly = true)
-    public QualificatifDTO getQualificatifById(Long id) {
-        log.debug("Fetching qualificatif with id: {}", id);
-        Qualificatif qualificatif = qualificatifRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Qualificatif", "idQualificatif", id));
-        return qualificatifMapper.toDTO(qualificatif);
-    }
+    public QualificatifDto create(CreateQualificatifRequest req) {
+        String mot1 = req.getMot1().trim();
+        String mot2 = req.getMot2().trim();
 
-    public QualificatifDTO createQualificatif(QualificatifDTO qualificatifDTO) {
-        log.debug("Creating new qualificatif: {}", qualificatifDTO);
-        Qualificatif qualificatif = qualificatifMapper.toEntity(qualificatifDTO);
-        Qualificatif savedQualificatif = qualificatifRepository.save(qualificatif);
-        log.info("Created qualificatif with id: {}", savedQualificatif.getIdQualificatif());
-        return qualificatifMapper.toDTO(savedQualificatif);
-    }
-
-    public QualificatifDTO updateQualificatif(Long id, QualificatifDTO qualificatifDTO) {
-        log.debug("Updating qualificatif with id: {}", id);
-        Qualificatif existingQualificatif = qualificatifRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Qualificatif", "idQualificatif", id));
-
-        existingQualificatif.setMaximal(qualificatifDTO.getMaximal());
-        existingQualificatif.setMinimal(qualificatifDTO.getMinimal());
-
-        Qualificatif updatedQualificatif = qualificatifRepository.save(existingQualificatif);
-        log.info("Updated qualificatif with id: {}", id);
-        return qualificatifMapper.toDTO(updatedQualificatif);
-    }
-
-    public void deleteQualificatif(Long id) {
-        log.debug("Deleting qualificatif with id: {}", id);
-        if (!qualificatifRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Qualificatif", "idQualificatif", id);
+        // règle : pas de doublon
+        if (repository.existsByMaximalIgnoreCaseAndMinimalIgnoreCase(mot1, mot2)) {
+            throw new RuntimeException("Ce couple existe déjà.");
         }
-        qualificatifRepository.deleteById(id);
-        log.info("Deleted qualificatif with id: {}", id);
+
+        Qualificatif q = new Qualificatif();
+        q.setMaximal(mot1);
+        q.setMinimal(mot2);
+
+        Qualificatif saved = repository.save(q);
+        return toDto(saved, 0L);
+    }
+
+    public QualificatifDto update(Long id, UpdateQualificatifRequest req) {
+        Qualificatif q = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Couple introuvable."));
+
+        long usage = counter.countUsage(id);
+
+        // règle : modif seulement si count == 0
+        if (usage > 0) {
+            throw new RuntimeException("Modification impossible : le couple est utilisé (count > 0).");
+        }
+
+        String mot1 = req.getMot1().trim();
+        String mot2 = req.getMot2().trim();
+
+        // règle : pas de doublon (en excluant l'id courant)
+        if (repository.existsByMaximalIgnoreCaseAndMinimalIgnoreCaseAndIdQualificatifNot(mot1, mot2, id)) {
+            throw new RuntimeException("Un couple identique existe déjà.");
+        }
+
+        q.setMaximal(mot1);
+        q.setMinimal(mot2);
+
+        Qualificatif saved = repository.save(q);
+        return toDto(saved, 0L);
+    }
+
+    public void delete(Long id) {
+        Qualificatif q = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Couple introuvable."));
+
+        // ne pas supprimer si utilisé
+        long usage = counter.countUsage(id);
+        if (usage > 0) {
+            throw new RuntimeException("Suppression impossible : le couple est utilisé (count > 0).");
+        }
+
+        repository.delete(q);
+    }
+
+    private QualificatifDto toDto(Qualificatif q, long count) {
+        return QualificatifDto.builder()
+                .id(q.getIdQualificatif())
+                .mot1(q.getMaximal())
+                .mot2(q.getMinimal())
+                .count(count)
+                .build();
     }
 }

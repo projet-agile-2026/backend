@@ -2,65 +2,59 @@ package com.evaluation.backend.controller;
 
 import com.evaluation.backend.dto.QuestionDTO;
 import com.evaluation.backend.service.QuestionService;
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
+import com.evaluation.backend.repository.QuestionRepository;
 import org.springframework.http.ResponseEntity;
+import com.evaluation.backend.entity.Question;
 import org.springframework.web.bind.annotation.*;
-
+import org.springframework.http.HttpStatus;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/questions")
-@RequiredArgsConstructor
-@Slf4j
+@RequestMapping("/api/v1/questions")
 @CrossOrigin(origins = "*")
 public class QuestionController {
 
     private final QuestionService questionService;
+    private final QuestionRepository questionRepository;
+
+    public QuestionController(QuestionService questionService, QuestionRepository questionRepository) {
+        this.questionService = questionService;
+        this.questionRepository = questionRepository;
+    }
 
     @GetMapping
-    public ResponseEntity<List<QuestionDTO>> getAllQuestions() {
-        log.info("GET /api/questions - Fetching all questions");
+    public ResponseEntity<List<QuestionDTO>> getAll() {
         List<QuestionDTO> questions = questionService.getAllQuestions();
         return ResponseEntity.ok(questions);
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<QuestionDTO> getQuestionById(@PathVariable Long id) {
-        log.info("GET /api/questions/{} - Fetching question by id", id);
-        QuestionDTO question = questionService.getQuestionById(id);
-        return ResponseEntity.ok(question);
+    @PostMapping("/create")
+    public ResponseEntity<Question> createQuestion(@RequestBody Question question) {
+        try {
+            Question savedQuestion = questionRepository.save(question);
+            return new ResponseEntity<>(savedQuestion, HttpStatus.CREATED);
+        } catch (Exception e) {
+            return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
-    @GetMapping("/type/{type}")
-    public ResponseEntity<List<QuestionDTO>> getQuestionsByType(@PathVariable String type) {
-        log.info("GET /api/questions/type/{} - Fetching questions by type", type);
-        List<QuestionDTO> questions = questionService.getQuestionsByType(type);
-        return ResponseEntity.ok(questions);
+    @PutMapping("/update/{id}")
+    public ResponseEntity<Question> update(@PathVariable Long id, @RequestBody Question questionDetails) {
+        try {
+            Question updatedQuestion = questionService.updateQuestion(id, questionDetails);
+            return ResponseEntity.ok(updatedQuestion);
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
-    @PostMapping
-    public ResponseEntity<QuestionDTO> createQuestion(@Valid @RequestBody QuestionDTO questionDTO) {
-        log.info("POST /api/questions - Creating new question");
-        QuestionDTO createdQuestion = questionService.createQuestion(questionDTO);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdQuestion);
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<QuestionDTO> updateQuestion(
-            @PathVariable Long id,
-            @Valid @RequestBody QuestionDTO questionDTO) {
-        log.info("PUT /api/questions/{} - Updating question", id);
-        QuestionDTO updatedQuestion = questionService.updateQuestion(id, questionDTO);
-        return ResponseEntity.ok(updatedQuestion);
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteQuestion(@PathVariable Long id) {
-        log.info("DELETE /api/questions/{} - Deleting question", id);
-        questionService.deleteQuestion(id);
-        return ResponseEntity.noContent().build();
+    @DeleteMapping("/delete/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        try {
+            questionService.deleteQuestion(id);
+            return ResponseEntity.noContent().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 }

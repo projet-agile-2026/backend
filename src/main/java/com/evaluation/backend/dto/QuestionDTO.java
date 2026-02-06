@@ -1,35 +1,28 @@
 package com.evaluation.backend.dto;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.io.Serializable;
+import jakarta.validation.constraints.NotBlank;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class QuestionDTO implements Serializable {
+public class QuestionDTO {
 
     private Long idQuestion;
 
-    @Size(max = 10, message = "Type must not exceed 10 characters")
+    @NotBlank(message = "Le type est obligatoire")
     private String type;
 
-    private Long noEnseignant;
+    private String noEnseignant;
 
-    @NotNull(message = "Qualificatif ID is required")
-    private Long idQualificatif;
+    @NotBlank(message = "L'identifiant du qualificatif est obligatoire")
+    private String idQualificatif;
 
-    @NotBlank(message = "Intitule is required")
-    @Size(max = 64, message = "Intitule must not exceed 64 characters")
+    @NotBlank(message = "L'intitulé est obligatoire")
     private String intitule;
-
-    // Include qualificatif details in response
-    private QualificatifDTO qualificatif;
 }
