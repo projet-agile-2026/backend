@@ -35,3 +35,8 @@ out/
 
 ### VS Code ###
 .vscode/
+
+# (Choix volontaire) ignorer ces fichiers
+Dockerfile
+build.gradle
+src/main/resources/application.yaml
