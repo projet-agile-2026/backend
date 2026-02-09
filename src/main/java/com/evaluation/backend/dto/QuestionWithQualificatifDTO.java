@@ -15,12 +15,12 @@ public class QuestionWithQualificatifDTO implements Serializable {
 
     private Long idQuestion;
     private String type;
-    private Long noEnseignant;
+    private String noEnseignant;
     private String intitule;
-    private Integer ordre;
+    private Integer ordre;  // Set by RubriqueService (ordre within rubrique)
 
     // Qualificatif details
     private Long idQualificatif;
-    private String maximal;
-    private String minimal;
+    private String maximal;  // mot1
+    private String minimal;  // mot2
 }

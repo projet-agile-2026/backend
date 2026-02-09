@@ -117,4 +117,16 @@ public class RubriqueController {
         rubriqueService.reorderQuestionsInRubrique(id, request);
         return ResponseEntity.ok().build();
     }
+
+    @PutMapping("/reorder/{type}")
+    public ResponseEntity<Void> reorderRubriques(
+            @PathVariable String type,
+            @RequestBody ReorderRubriquesRequest request) {
+        try {
+            rubriqueService.reorderRubriques(type, request);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 }

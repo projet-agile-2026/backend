@@ -7,8 +7,6 @@ import com.evaluation.backend.exception.DuplicateResourceException;
 import com.evaluation.backend.exception.InvalidOrderException;
 import com.evaluation.backend.exception.ResourceNotFoundException;
 import com.evaluation.backend.mapper.RubriqueMapper;
-import com.evaluation.backend.repository.QualificatifRepository;
-import com.evaluation.backend.repository.QuestionRepository;
 import com.evaluation.backend.repository.RubriqueQuestionRepository;
 import com.evaluation.backend.repository.RubriqueRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,18 +25,15 @@ import java.util.stream.Collectors;
 public class RubriqueService {
 
     private final RubriqueRepository rubriqueRepository;
-    private final QuestionRepository questionRepository;
-    private final QualificatifRepository qualificatifRepository;
     private final RubriqueQuestionRepository rubriqueQuestionRepository;
     private final RubriqueMapper rubriqueMapper;
-
+    private final QuestionService questionService;
     @Transactional(readOnly = true)
     public List<RubriqueDTO> getAllRubriques() {
         log.debug("Fetching all rubriques");
         List<Rubrique> rubriques = rubriqueRepository.findAllOrderByOrdre();
         List<RubriqueDTO> rubriqueDTOs = rubriqueMapper.toDTOList(rubriques);
 
-        // Populate questions for each rubrique
         for (RubriqueDTO rubriqueDTO : rubriqueDTOs) {
             List<QuestionWithQualificatifDTO> questions =
                     getQuestionsWithQualificatifsForRubrique(rubriqueDTO.getIdRubrique());
@@ -55,8 +50,6 @@ public class RubriqueService {
                 .orElseThrow(() -> new ResourceNotFoundException("Rubrique", "idRubrique", id));
 
         RubriqueDTO rubriqueDTO = rubriqueMapper.toDTO(rubrique);
-
-        // Fetch questions with their qualificatifs
         List<QuestionWithQualificatifDTO> questionsWithQualificatifs = getQuestionsWithQualificatifsForRubrique(id);
         rubriqueDTO.setQuestions(questionsWithQualificatifs);
 
@@ -67,13 +60,13 @@ public class RubriqueService {
     public List<QuestionWithQualificatifDTO> getQuestionsForRubrique(Long rubriqueId) {
         log.debug("Fetching questions for rubrique id: {}", rubriqueId);
 
-        // Verify rubrique exists
         if (!rubriqueRepository.existsById(rubriqueId)) {
             throw new ResourceNotFoundException("Rubrique", "idRubrique", rubriqueId);
         }
 
         return getQuestionsWithQualificatifsForRubrique(rubriqueId);
     }
+
 
     private List<QuestionWithQualificatifDTO> getQuestionsWithQualificatifsForRubrique(Long rubriqueId) {
         List<RubriqueQuestion> rubriqueQuestions = rubriqueQuestionRepository
@@ -82,23 +75,8 @@ public class RubriqueService {
         List<QuestionWithQualificatifDTO> result = new ArrayList<>();
 
         for (RubriqueQuestion rq : rubriqueQuestions) {
-            Question question = questionRepository.findById(rq.getIdQuestion())
-                    .orElseThrow(() -> new ResourceNotFoundException("Question", "idQuestion", rq.getIdQuestion()));
-
-            Qualificatif qualificatif = qualificatifRepository.findById(question.getIdQualificatif())
-                    .orElseThrow(() -> new ResourceNotFoundException("Qualificatif", "idQualificatif", question.getIdQualificatif()));
-
-            QuestionWithQualificatifDTO dto = QuestionWithQualificatifDTO.builder()
-                    .idQuestion(question.getIdQuestion())
-                    .type(question.getType())
-                    .noEnseignant(question.getNoEnseignant())
-                    .intitule(question.getIntitule())
-                    .ordre(rq.getOrdre())
-                    .idQualificatif(qualificatif.getIdQualificatif())
-                    .maximal(qualificatif.getMaximal())
-                    .minimal(qualificatif.getMinimal())
-                    .build();
-
+            QuestionWithQualificatifDTO dto = questionService.getQuestionWithQualificatifById(rq.getIdQuestion());
+            dto.setOrdre(rq.getOrdre());
             result.add(dto);
         }
 
@@ -111,7 +89,6 @@ public class RubriqueService {
             request.setType("RBS");
         }
 
-        // Check for duplicate designation and type
         rubriqueRepository.findByDesignationAndType(request.getDesignation(), request.getType())
                 .ifPresent(existing -> {
                     throw new DuplicateResourceException("Rubrique", "designation and type",
@@ -120,7 +97,6 @@ public class RubriqueService {
 
         Rubrique rubrique = rubriqueMapper.toEntity(request);
 
-        // If ordre is not provided, set it to max + 1
         if (rubrique.getOrdre() == null) {
             Integer maxOrdre = rubriqueRepository.findMaxOrdreByType(rubrique.getType());
             rubrique.setOrdre(maxOrdre == null ? 1 : maxOrdre + 1);
@@ -136,7 +112,6 @@ public class RubriqueService {
         Rubrique existingRubrique = rubriqueRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Rubrique", "idRubrique", id));
 
-        // Check for duplicate designation and type (excluding current rubrique)
         rubriqueRepository.findByDesignationAndType(request.getDesignation(), request.getType())
                 .ifPresent(existing -> {
                     if (!existing.getIdRubrique().equals(id)) {
@@ -158,9 +133,7 @@ public class RubriqueService {
             throw new ResourceNotFoundException("Rubrique", "idRubrique", id);
         }
 
-        // Delete all associated rubrique_question entries first
         rubriqueQuestionRepository.deleteByIdRubrique(id);
-
         rubriqueRepository.deleteById(id);
         log.info("Deleted rubrique with id: {}", id);
     }
@@ -168,17 +141,15 @@ public class RubriqueService {
     public void addQuestionToRubrique(Long rubriqueId, AddQuestionToRubriqueRequest request) {
         log.debug("Adding question {} to rubrique {}", request.getIdQuestion(), rubriqueId);
 
-        // Verify rubrique exists
         if (!rubriqueRepository.existsById(rubriqueId)) {
             throw new ResourceNotFoundException("Rubrique", "idRubrique", rubriqueId);
         }
 
-        // Verify question exists
-        if (!questionRepository.existsById(request.getIdQuestion())) {
+        //  Use QuestionService
+        if (!questionService.existsById(request.getIdQuestion())) {
             throw new ResourceNotFoundException("Question", "idQuestion", request.getIdQuestion());
         }
 
-        // Check if question already exists in rubrique
         if (rubriqueQuestionRepository.existsByIdRubriqueAndIdQuestion(rubriqueId, request.getIdQuestion())) {
             throw new DuplicateResourceException("RubriqueQuestion", "rubrique and question",
                     rubriqueId + " - " + request.getIdQuestion());
@@ -197,7 +168,6 @@ public class RubriqueService {
     public void removeQuestionFromRubrique(Long rubriqueId, Long questionId) {
         log.debug("Removing question {} from rubrique {}", questionId, rubriqueId);
 
-        // Verify association exists
         if (!rubriqueQuestionRepository.existsByIdRubriqueAndIdQuestion(rubriqueId, questionId)) {
             throw new ResourceNotFoundException("RubriqueQuestion",
                     "rubrique and question", rubriqueId + " - " + questionId);
@@ -210,16 +180,13 @@ public class RubriqueService {
     public void reorderQuestionsInRubrique(Long rubriqueId, ReorderQuestionsRequest request) {
         log.debug("Reordering questions in rubrique {}", rubriqueId);
 
-        // Verify rubrique exists
         if (!rubriqueRepository.existsById(rubriqueId)) {
             throw new ResourceNotFoundException("Rubrique", "idRubrique", rubriqueId);
         }
 
-        // Get current questions in rubrique
         List<RubriqueQuestion> currentQuestions = rubriqueQuestionRepository
                 .findByIdRubriqueOrderByOrdreAsc(rubriqueId);
 
-        // Validate that all questions in request exist in rubrique
         List<Long> currentQuestionIds = currentQuestions.stream()
                 .map(RubriqueQuestion::getIdQuestion)
                 .collect(Collectors.toList());
@@ -230,7 +197,6 @@ public class RubriqueService {
             }
         }
 
-        // Validate ordre values (should be consecutive starting from 1)
         List<Integer> ordres = request.getQuestionOrders().stream()
                 .map(ReorderQuestionsRequest.QuestionOrder::getOrdre)
                 .sorted()
@@ -242,7 +208,6 @@ public class RubriqueService {
             }
         }
 
-        // Update ordre for each question
         for (ReorderQuestionsRequest.QuestionOrder qo : request.getQuestionOrders()) {
             RubriqueQuestion rq = rubriqueQuestionRepository
                     .findByIdRubriqueAndIdQuestion(rubriqueId, qo.getIdQuestion())
@@ -254,5 +219,43 @@ public class RubriqueService {
         }
 
         log.info("Reordered {} questions in rubrique {}", request.getQuestionOrders().size(), rubriqueId);
+    }
+
+    // ✅ NEW METHOD - Reorder rubriques by type
+    public void reorderRubriques(String type, ReorderRubriquesRequest request) {
+        log.debug("Reordering rubriques of type {}", type);
+
+        List<Rubrique> currentRubriques = rubriqueRepository.findByTypeOrderByOrdreAsc(type);
+
+        List<Long> currentRubriqueIds = currentRubriques.stream()
+                .map(Rubrique::getIdRubrique)
+                .collect(Collectors.toList());
+
+        for (ReorderRubriquesRequest.RubriqueOrder ro : request.getRubriqueOrders()) {
+            if (!currentRubriqueIds.contains(ro.getIdRubrique())) {
+                throw new BusinessException("Rubrique " + ro.getIdRubrique() + " is not of type " + type);
+            }
+        }
+
+        List<Integer> ordres = request.getRubriqueOrders().stream()
+                .map(ReorderRubriquesRequest.RubriqueOrder::getOrdre)
+                .sorted()
+                .collect(Collectors.toList());
+
+        for (int i = 0; i < ordres.size(); i++) {
+            if (ordres.get(i) != i + 1) {
+                throw new InvalidOrderException("Ordre values must be consecutive starting from 1");
+            }
+        }
+
+        for (ReorderRubriquesRequest.RubriqueOrder ro : request.getRubriqueOrders()) {
+            Rubrique rubrique = rubriqueRepository.findById(ro.getIdRubrique())
+                    .orElseThrow(() -> new ResourceNotFoundException("Rubrique", "idRubrique", ro.getIdRubrique()));
+
+            rubrique.setOrdre(ro.getOrdre());
+            rubriqueRepository.save(rubrique);
+        }
+
+        log.info("Reordered {} rubriques of type {}", request.getRubriqueOrders().size(), type);
     }
 }

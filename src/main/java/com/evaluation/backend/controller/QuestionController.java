@@ -10,7 +10,7 @@ import org.springframework.http.HttpStatus;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/questions")
+@RequestMapping("/api/questions")
 @CrossOrigin(origins = "*")
 public class QuestionController {
 

@@ -13,8 +13,10 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 
     List<Question> findByType(String type);
 
-    List<Question> findByNoEnseignant(Long noEnseignant);
+    // ✅ CHANGED: Long → String (because Question.noEnseignant is String)
+    List<Question> findByNoEnseignant(String noEnseignant);
 
+    // ✅ CHANGED: Long → String (because Question.idQualificatif is String)
     @Query("SELECT q FROM Question q WHERE q.idQualificatif = :idQualificatif")
-    List<Question> findByQualificatifId(@Param("idQualificatif") Long idQualificatif);
+    List<Question> findByQualificatifId(@Param("idQualificatif") String idQualificatif);
 }
