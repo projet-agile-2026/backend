@@ -1,8 +1,8 @@
 package com.evaluation.backend.controller;
 
-import com.evaluation.backend.dto.Login.LoginRequestDTO;
+import com.evaluation.backend.dto.Auth.LoginRequestDTO;
 import com.evaluation.backend.security.JwtService;
-import com.evaluation.backend.service.CustomUserDetailsService;
+import com.evaluation.backend.service.Auth.CustomUserDetailsService;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;

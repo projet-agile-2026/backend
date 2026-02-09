@@ -1,4 +1,4 @@
-package com.evaluation.backend.dto.Login;
+package com.evaluation.backend.dto.Auth;
 
 import lombok.Getter;
 import lombok.Setter;

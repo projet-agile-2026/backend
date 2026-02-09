@@ -1,6 +1,6 @@
-package com.evaluation.backend.service;
+package com.evaluation.backend.service.Auth;
 
-import com.evaluation.backend.dto.Login.LoginResponseDTO;
+import com.evaluation.backend.dto.Auth.LoginResponseDTO;
 import com.evaluation.backend.entity.Authentification;
 import com.evaluation.backend.entity.Enseignant;
 import com.evaluation.backend.entity.Etudiant;

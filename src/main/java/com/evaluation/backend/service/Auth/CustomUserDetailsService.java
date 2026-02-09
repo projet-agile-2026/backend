@@ -1,4 +1,4 @@
-package com.evaluation.backend.service;
+package com.evaluation.backend.service.Auth;
 
 import com.evaluation.backend.repository.AuthentificationRepository;
 import org.springframework.security.core.userdetails.UserDetails;
