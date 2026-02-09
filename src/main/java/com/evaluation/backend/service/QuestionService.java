@@ -1,11 +1,11 @@
 package com.evaluation.backend.service;
 
-import com.evaluation.backend.dto.QuestionDTO;
+import com.evaluation.backend.dto.Question.QuestionDTO;
 import com.evaluation.backend.repository.QuestionRepository;
 import org.springframework.stereotype.Service;
 import java.util.List;
-import java.util.stream.Collectors;
-import com.evaluation.backend.dto.QuestionWithQualificatifDTO;
+
+import com.evaluation.backend.dto.Question.QuestionWithQualificatifDTO;
 import com.evaluation.backend.repository.QualificatifRepository;
 import com.evaluation.backend.entity.Qualificatif;
 import com.evaluation.backend.entity.Question;

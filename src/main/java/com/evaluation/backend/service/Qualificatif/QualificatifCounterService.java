@@ -1,4 +1,4 @@
-package com.evaluation.backend.service;
+package com.evaluation.backend.service.Qualificatif;
 
 import org.springframework.stereotype.Service;
 

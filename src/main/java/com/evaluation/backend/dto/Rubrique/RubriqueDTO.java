@@ -1,5 +1,6 @@
-package com.evaluation.backend.dto;
+package com.evaluation.backend.dto.Rubrique;
 
+import com.evaluation.backend.dto.Question.QuestionWithQualificatifDTO;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;

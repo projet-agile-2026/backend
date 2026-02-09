@@ -1,6 +1,6 @@
 package com.evaluation.backend.controller;
 
-import com.evaluation.backend.dto.QuestionDTO;
+import com.evaluation.backend.dto.Question.QuestionDTO;
 import com.evaluation.backend.service.QuestionService;
 import com.evaluation.backend.repository.QuestionRepository;
 import org.springframework.http.ResponseEntity;

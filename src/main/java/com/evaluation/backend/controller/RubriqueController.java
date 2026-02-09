@@ -1,6 +1,8 @@
 package com.evaluation.backend.controller;
 
-import com.evaluation.backend.dto.*;
+import com.evaluation.backend.dto.Question.QuestionWithQualificatifDTO;
+import com.evaluation.backend.dto.Question.ReorderQuestionsRequest;
+import com.evaluation.backend.dto.Rubrique.*;
 import com.evaluation.backend.service.RubriqueService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

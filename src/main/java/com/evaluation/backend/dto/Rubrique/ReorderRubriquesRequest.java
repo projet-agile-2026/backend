@@ -1,4 +1,4 @@
-package com.evaluation.backend.dto;
+package com.evaluation.backend.dto.Rubrique;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

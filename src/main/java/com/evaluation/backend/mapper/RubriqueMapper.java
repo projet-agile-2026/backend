@@ -1,8 +1,8 @@
 package com.evaluation.backend.mapper;
 
-import com.evaluation.backend.dto.CreateRubriqueRequest;
-import com.evaluation.backend.dto.RubriqueDTO;
-import com.evaluation.backend.dto.UpdateRubriqueRequest;
+import com.evaluation.backend.dto.Rubrique.CreateRubriqueRequest;
+import com.evaluation.backend.dto.Rubrique.RubriqueDTO;
+import com.evaluation.backend.dto.Rubrique.UpdateRubriqueRequest;
 import com.evaluation.backend.entity.Rubrique;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;

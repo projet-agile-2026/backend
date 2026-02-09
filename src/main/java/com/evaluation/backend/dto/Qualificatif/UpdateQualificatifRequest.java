@@ -1,10 +1,10 @@
-package com.evaluation.backend.dto;
+package com.evaluation.backend.dto.Qualificatif;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 @Data
-public class CreateQualificatifRequest {
+public class UpdateQualificatifRequest {
     @NotBlank
     private String mot1;
 

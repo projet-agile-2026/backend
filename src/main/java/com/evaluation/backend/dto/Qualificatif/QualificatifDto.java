@@ -1,4 +1,4 @@
-package com.evaluation.backend.dto;
+package com.evaluation.backend.dto.Qualificatif;
 
 import lombok.Builder;
 import lombok.Data;

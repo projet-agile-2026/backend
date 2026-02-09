@@ -1,4 +1,4 @@
-package com.evaluation.backend.dto;
+package com.evaluation.backend.dto.Question;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

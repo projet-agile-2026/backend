@@ -1,9 +1,9 @@
 package com.evaluation.backend.controller;
 
-import com.evaluation.backend.dto.CreateQualificatifRequest;
-import com.evaluation.backend.dto.QualificatifDto;
-import com.evaluation.backend.dto.UpdateQualificatifRequest;
-import com.evaluation.backend.service.QualificatifService;
+import com.evaluation.backend.dto.Qualificatif.CreateQualificatifRequest;
+import com.evaluation.backend.dto.Qualificatif.QualificatifDto;
+import com.evaluation.backend.dto.Qualificatif.UpdateQualificatifRequest;
+import com.evaluation.backend.service.Qualificatif.QualificatifService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

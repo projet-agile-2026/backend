@@ -1,4 +1,4 @@
-package com.evaluation.backend.dto;
+package com.evaluation.backend.dto.Rubrique;
 
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;

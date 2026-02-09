@@ -1,8 +1,8 @@
-package com.evaluation.backend.service;
+package com.evaluation.backend.service.Qualificatif;
 
-import com.evaluation.backend.dto.CreateQualificatifRequest;
-import com.evaluation.backend.dto.QualificatifDto;
-import com.evaluation.backend.dto.UpdateQualificatifRequest;
+import com.evaluation.backend.dto.Qualificatif.CreateQualificatifRequest;
+import com.evaluation.backend.dto.Qualificatif.QualificatifDto;
+import com.evaluation.backend.dto.Qualificatif.UpdateQualificatifRequest;
 import com.evaluation.backend.entity.Qualificatif;
 import com.evaluation.backend.repository.QualificatifRepository;
 import lombok.RequiredArgsConstructor;

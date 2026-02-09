@@ -1,4 +1,4 @@
-package com.evaluation.backend.service;
+package com.evaluation.backend.service.Qualificatif;
 
 public interface QualificatifUsageCounter {
     long countUsage(Long qualificatifId);
