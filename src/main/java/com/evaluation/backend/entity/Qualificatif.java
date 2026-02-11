@@ -31,6 +31,7 @@ public class Qualificatif implements Serializable {
     @Column(name = "ID_QUALIFICATIF", nullable = false)
     private Long idQualificatif;
 
+
     @Column(name = "MAXIMAL", nullable = false)
     private String maximal;
 

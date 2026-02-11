@@ -12,14 +12,22 @@ import org.hibernate.annotations.ColumnDefault;
 
 import java.time.LocalDate;
 
+@lombok.NoArgsConstructor
+@lombok.experimental.SuperBuilder
+@lombok.ToString
 @Getter
 @Setter
 @Entity
 @Table(name = "ETUDIANT")
-public class Etudiant {
+public class Etudiant implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     @Id
     @Column(name = "NO_ETUDIANT")
-    private String noEtudiant;
+    private Long noEtudiant;
+    @Column(name = "CODE_FORMATION", nullable = false)
+    private String codeFormation;
+    @Column(name = "ANNEE_UNIVERSITAIRE", nullable = false)
+    private String anneeUniversitaire;
 
     @NotNull
     @Column(name = "NOM")
