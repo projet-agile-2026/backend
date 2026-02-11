@@ -39,4 +39,7 @@ public interface RubriqueQuestionRepository extends JpaRepository<RubriqueQuesti
             @Param("idQuestion") Long idQuestion);
 
     boolean existsByIdRubriqueAndIdQuestion(Long idRubrique, Long idQuestion);
+
+    @Query("SELECT DISTINCT rq.idQuestion FROM RubriqueQuestion rq")
+    List<Long> findAllUsedQuestionIds();
 }
