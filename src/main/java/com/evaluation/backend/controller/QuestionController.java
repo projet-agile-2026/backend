@@ -2,11 +2,13 @@ package com.evaluation.backend.controller;
 
 import com.evaluation.backend.dto.Question.QuestionDTO;
 import com.evaluation.backend.service.QuestionService;
-import com.evaluation.backend.repository.QuestionRepository;
-import org.springframework.http.ResponseEntity;
 import com.evaluation.backend.entity.Question;
-import org.springframework.web.bind.annotation.*;
+import com.evaluation.backend.entity.Authentification;
+import com.evaluation.backend.repository.AuthentificationRepository;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
@@ -15,46 +17,75 @@ import java.util.List;
 public class QuestionController {
 
     private final QuestionService questionService;
-    private final QuestionRepository questionRepository;
+    private final AuthentificationRepository authentificationRepository;
 
-    public QuestionController(QuestionService questionService, QuestionRepository questionRepository) {
+    public QuestionController(QuestionService questionService, AuthentificationRepository authentificationRepository) {
         this.questionService = questionService;
-        this.questionRepository = questionRepository;
+        this.authentificationRepository = authentificationRepository;
     }
 
     @GetMapping
-    public ResponseEntity<List<QuestionDTO>> getAll() {
-        List<QuestionDTO> questions = questionService.getAllQuestions();
-        return ResponseEntity.ok(questions);
+    public ResponseEntity<List<QuestionDTO>> getAll(Authentication authentication) {
+        String role = extractRole(authentication);
+        String noEnseignant = "ROLE_ENS".equals(role) ? getConnectedEnseignantId(authentication) : null;
+
+        if ("ROLE_ENS".equals(role)) {
+            return ResponseEntity.ok(questionService.getAllQuestions(noEnseignant));
+        } else if ("ROLE_ADM".equals(role)){
+            return ResponseEntity.ok(questionService.getQuestionsForAdmin());
+        }
+         return ResponseEntity.ok(questionService.getAllQuestions(noEnseignant));
     }
 
     @PostMapping("/create")
-    public ResponseEntity<Question> createQuestion(@RequestBody Question question) {
+    public ResponseEntity<?> createQuestion(@RequestBody Question question, Authentication authentication) {
         try {
-            Question savedQuestion = questionRepository.save(question);
+            String role = extractRole(authentication);
+            String noEnseignant = "ROLE_ENS".equals(role) ? getConnectedEnseignantId(authentication) : null;
+            String simpleRole = role.replace("ROLE_", "");
+            Question savedQuestion = questionService.createQuestion(question, simpleRole, noEnseignant);
             return new ResponseEntity<>(savedQuestion, HttpStatus.CREATED);
         } catch (Exception e) {
-            return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
         }
     }
 
     @PutMapping("/update/{id}")
-    public ResponseEntity<Question> update(@PathVariable Long id, @RequestBody Question questionDetails) {
+    public ResponseEntity<?> update(@PathVariable Long id, @RequestBody Question questionDetails, Authentication authentication) {
         try {
-            Question updatedQuestion = questionService.updateQuestion(id, questionDetails);
+            String role = extractRole(authentication);
+            String noEnseignant = "ROLE_ENS".equals(role) ? getConnectedEnseignantId(authentication) : null;
+            String simpleRole = role.replace("ROLE_", "");
+            Question updatedQuestion = questionService.updateQuestion(id, questionDetails, simpleRole, noEnseignant);
             return ResponseEntity.ok(updatedQuestion);
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
         }
     }
 
     @DeleteMapping("/delete/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
+    public ResponseEntity<?> delete(@PathVariable Long id, Authentication authentication) {
         try {
-            questionService.deleteQuestion(id);
+            String role = extractRole(authentication);
+            String noEnseignant = "ROLE_ENS".equals(role) ? getConnectedEnseignantId(authentication) : null;
+            String simpleRole = role.replace("ROLE_", "");
+            questionService.deleteQuestion(id, simpleRole, noEnseignant);
             return ResponseEntity.noContent().build();
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
         }
+    }
+
+    private String extractRole(Authentication authentication) {
+        return authentication.getAuthorities().iterator().next().getAuthority();
+    }
+
+    private String getConnectedEnseignantId(Authentication authentication) {
+        Authentification auth = authentificationRepository.findByEmail(authentication.getName())
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+        if (auth.getEnseignant() == null) {
+            throw new RuntimeException("L'utilisateur n'est pas lié à un enseignant");
+        }
+        return String.valueOf(auth.getEnseignant().getId());
     }
 }

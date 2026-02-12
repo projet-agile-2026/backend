@@ -45,6 +45,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/login").permitAll()
                         .requestMatchers("/api/enseignant/**").hasRole("ENS")
                         .requestMatchers("/api/etudiant/**").hasRole("ETU")
+                        .requestMatchers("/api/questions/**").hasAnyRole("ADM", "ENS")
                         .anyRequest().authenticated()
                 )
                 .userDetailsService(userDetailsService)

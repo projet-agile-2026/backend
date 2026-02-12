@@ -20,7 +20,7 @@ public class Enseignant {
 
 
     @NotNull
-    @Column(name = "\"TYPE\"")
+    @Column(name = "TYPE")
     private String type;
 
 
