@@ -27,6 +27,24 @@ public class EvaluationController {
     }
 
 
+    @GetMapping("/formations")
+    public List<String> getFormations() {
+        return service.getFormations();
+    }
+
+    @GetMapping("/formations/{codeFormation}/ues")
+    public List<String> getUes(@PathVariable String codeFormation) {
+        return service.getCodeUe(codeFormation);
+    }
+
+    @GetMapping("/formations/{codeFormation}/ues/{codeUe}/ecs")
+    public List<String> getEcs(@PathVariable String codeFormation,
+                               @PathVariable String codeUe) {
+        return service.getCodeEc(codeFormation, codeUe);
+    }
+
+
+
     @GetMapping("/{id}")
     public EvaluationResponseDTO getById(@PathVariable Long id) {
         return service.getById(id);

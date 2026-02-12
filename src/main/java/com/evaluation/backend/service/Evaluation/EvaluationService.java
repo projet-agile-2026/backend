@@ -16,4 +16,11 @@ public interface EvaluationService {
     EvaluationResponseDTO update(Long id, EvaluationRequestDTO dto);
 
     void delete(Long id);
+
+    List<String> getFormations();
+
+    List<String> getCodeUe(String codeFormation);
+
+    List<String> getCodeEc(String codeFormation, String codeUe);
+
 }

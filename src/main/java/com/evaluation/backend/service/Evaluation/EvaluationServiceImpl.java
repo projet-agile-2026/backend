@@ -6,10 +6,13 @@ import com.evaluation.backend.entity.Evaluation;
 import com.evaluation.backend.exception.BusinessException;
 import com.evaluation.backend.exception.ResourceNotFoundException;
 import com.evaluation.backend.mapper.EvaluationMapper;
+import com.evaluation.backend.repository.ElementConstitutifRepository;
 import com.evaluation.backend.repository.EvaluationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+
 
 import java.util.List;
 
@@ -20,6 +23,8 @@ public class EvaluationServiceImpl implements EvaluationService {
 
     private final EvaluationRepository repository;
     private final EvaluationMapper mapper;
+    private final ElementConstitutifRepository elementConstitutifRepository;
+
 
     @Override
     @Transactional(readOnly = true)
@@ -87,4 +92,21 @@ public class EvaluationServiceImpl implements EvaluationService {
             throw new BusinessException("Etat invalide. Valeurs possibles: ELA, DIS, CLO");
         }
     }
+
+
+    @Override
+    public List<String> getFormations() {
+        return elementConstitutifRepository.findDistinctFormations();
+    }
+
+    @Override
+    public List<String> getCodeUe(String codeFormation) {
+        return elementConstitutifRepository.findDistinctUesByFormation(codeFormation);
+    }
+
+    @Override
+    public List<String> getCodeEc(String codeFormation, String codeUe) {
+        return elementConstitutifRepository.findDistinctEcsByFormationAndUe(codeFormation, codeUe);
+    }
+
 }
