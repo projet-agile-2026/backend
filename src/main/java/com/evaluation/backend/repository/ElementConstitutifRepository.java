@@ -10,16 +10,6 @@ import java.util.List;
 
 public interface ElementConstitutifRepository extends JpaRepository<ElementConstitutif, ElementConstitutifId> {
 
-    @Query("select distinct e.codeFormation from ElementConstitutif e order by e.codeFormation")
-    List<String> findDistinctFormations();
-
-    @Query("""
-           select distinct e.codeUe
-           from ElementConstitutif e
-           where e.codeFormation = :codeFormation
-           order by e.codeUe
-           """)
-    List<String> findDistinctUesByFormation(@Param("codeFormation") String codeFormation);
 
     @Query("""
            select distinct e.codeEc

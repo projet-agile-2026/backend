@@ -11,6 +11,8 @@ import com.evaluation.backend.repository.EvaluationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.evaluation.backend.repository.FormationRepository;
+import com.evaluation.backend.repository.UniteEnseignementRepository;
 
 
 
@@ -24,6 +26,9 @@ public class EvaluationServiceImpl implements EvaluationService {
     private final EvaluationRepository repository;
     private final EvaluationMapper mapper;
     private final ElementConstitutifRepository elementConstitutifRepository;
+    private final FormationRepository formationRepository;
+    private final UniteEnseignementRepository uniteEnseignementRepository;
+
 
 
     @Override
@@ -96,12 +101,12 @@ public class EvaluationServiceImpl implements EvaluationService {
 
     @Override
     public List<String> getFormations() {
-        return elementConstitutifRepository.findDistinctFormations();
+        return formationRepository.findAllCodeFormations();
     }
 
     @Override
     public List<String> getCodeUe(String codeFormation) {
-        return elementConstitutifRepository.findDistinctUesByFormation(codeFormation);
+        return uniteEnseignementRepository.findCodeUeByCodeFormation(codeFormation);
     }
 
     @Override
