@@ -68,11 +68,11 @@ public class QuestionService {
             if ("ENS".equals(role) && !isOwner(q, noEnseignant)) {
                 throw new RuntimeException("Action interdite : propriétaire différent");
             }
-            else if ("ENS".equals(role) && details.getType().equals("QUS")){
+            else if ("ENS".equals(role) && "QUS".equals(details.getType())){
                 throw new RuntimeException("l'enseignant ne peut pas modifier une question standard" );
 
             }
-            else if ("ADM".equals(role) && details.getType().equals("QUP")){
+            else if ("ADM".equals(role) && "QUP".equals(details.getType())){
                 throw new RuntimeException("l'admin  ne peut pas modifier une question personnelle" );
 
             }
