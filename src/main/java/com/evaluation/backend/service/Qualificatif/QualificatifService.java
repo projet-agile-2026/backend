@@ -17,21 +17,11 @@ public class QualificatifService {
     private final QualificatifRepository repository;
     private final QualificatifUsageCounter counter;
 
-    // changement pour count
     public List<QualificatifDto> getAll() {
-        var qualificatifs = repository.findAll();
-
-        var ids = qualificatifs.stream()
-                .map(Qualificatif::getIdQualificatif)
-                .collect(java.util.stream.Collectors.toSet());
-
-        var counts = counter.countUsage(ids);
-
-        return qualificatifs.stream()
-                .map(q -> toDto(q, counts.getOrDefault(q.getIdQualificatif(), 0L)))
+        return repository.findAll().stream()
+                .map(q -> toDto(q, counter.countUsage(q.getIdQualificatif())))
                 .toList();
     }
-
 
     public QualificatifDto create(CreateQualificatifRequest req) {
         String mot1 = req.getMot1().trim();

@@ -25,14 +25,4 @@ public class QuestionDTO {
 
     @NotBlank(message = "L'intitulé est obligatoire")
     private String intitule;
-
-    private boolean usedInRubrique;
-
-    public QuestionDTO(Long idQuestion, String type, String noEnseignant, String idQualificatif, String intitule) {
-        this.idQuestion = idQuestion;
-        this.type = type;
-        this.noEnseignant = noEnseignant;
-        this.idQualificatif = idQualificatif;
-        this.intitule = intitule;
-    }
 }

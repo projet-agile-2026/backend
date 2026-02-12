@@ -3,7 +3,9 @@ package com.evaluation.backend.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
+
 import java.io.Serializable;
+import java.time.LocalDateTime;
 
 @Entity
 @Getter

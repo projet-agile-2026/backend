@@ -19,15 +19,4 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     // ✅ CHANGED: Long → String (because Question.idQualificatif is String)
     @Query("SELECT q FROM Question q WHERE q.idQualificatif = :idQualificatif")
     List<Question> findByQualificatifId(@Param("idQualificatif") String idQualificatif);
-
-    //traitement de count
-    long countByIdQualificatif(String idQualificatif);
-
-    @Query("""
-        SELECT q.idQualificatif, COUNT(q)
-        FROM Question q
-        WHERE q.idQualificatif IN :ids
-        GROUP BY q.idQualificatif
-    """)
-    List<Object[]> countByIdQualificatifInGroup(@Param("ids") List<String> ids);
 }
