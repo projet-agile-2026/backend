@@ -6,17 +6,44 @@ import com.evaluation.backend.repository.QuestionRepository;
 import com.evaluation.backend.repository.QualificatifRepository;
 import com.evaluation.backend.entity.Question;
 import com.evaluation.backend.entity.Qualificatif;
+import com.evaluation.backend.repository.RubriqueQuestionRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class QuestionService {
     private final QuestionRepository questionRepository;
     private final QualificatifRepository qualificatifRepository;
+    @Autowired
+    private RubriqueQuestionRepository rubriqueQuestionRepository;
+
 
     public QuestionService(QuestionRepository questionRepository, QualificatifRepository qualificatifRepository) {
         this.questionRepository = questionRepository;
         this.qualificatifRepository = qualificatifRepository;
+    }
+
+    public List<QuestionDTO> getAllQuestions() {
+
+        List<Question> questions = questionRepository.findAll();
+
+        List<Long> usedQuestionIds = rubriqueQuestionRepository.findAllUsedQuestionIds();
+        Set<Long> usedSet = new HashSet<>(usedQuestionIds);
+
+        return questions.stream()
+                .map(question -> new QuestionDTO(
+                        question.getIdQuestion(),
+                        question.getType(),
+                        question.getNoEnseignant(),
+                        question.getIdQualificatif(),
+                        question.getIntitule(),
+                        usedSet.contains(question.getIdQuestion())
+                ))
+                .toList();
     }
 
     public QuestionWithQualificatifDTO getQuestionWithQualificatifById(Long questionId) {

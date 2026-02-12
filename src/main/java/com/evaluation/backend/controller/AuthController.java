@@ -1,10 +1,13 @@
 package com.evaluation.backend.controller;
 
 import com.evaluation.backend.dto.Auth.LoginRequestDTO;
+import com.evaluation.backend.dto.Auth.UserInfoDTO;
+import com.evaluation.backend.entity.Authentification;
 import com.evaluation.backend.security.JwtService;
 import com.evaluation.backend.service.Auth.CustomUserDetailsService;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
@@ -43,5 +46,30 @@ public class AuthController {
 
         return Map.of("token", token);
     }
+
+    @GetMapping("/info")
+    public UserInfoDTO getCurrentUser(Authentication authentication) {
+        Authentification user = (Authentification) authentication.getPrincipal();
+
+        String nom = null;
+        String prenom = null;
+
+        if (user.getEtudiant() != null) {
+            nom = user.getEtudiant().getNom();
+            prenom = user.getEtudiant().getPrenom();
+        } else if (user.getEnseignant() != null) {
+            nom = user.getEnseignant().getNom();
+            prenom = user.getEnseignant().getPrenom();
+        }
+
+        return new UserInfoDTO(
+                user.getId(),
+                user.getRole(),
+                nom,
+                prenom,
+                user.getEmail()
+        );
+    }
+
 
 }

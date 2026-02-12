@@ -1,13 +1,7 @@
 package com.evaluation.backend.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-import lombok.ToString;
+import jakarta.persistence.*;
+import lombok.*;
 import lombok.experimental.SuperBuilder;
 
 import java.io.Serializable;
@@ -18,28 +12,60 @@ import java.io.Serializable;
 @ToString
 @SuperBuilder
 @NoArgsConstructor
+@AllArgsConstructor
 @Table(name = "QUESTION_EVALUATION")
 public class QuestionEvaluation implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+
     @Id
     @Column(name = "ID_QUESTION_EVALUATION", nullable = false)
-    private String idQuestionEvaluation;
+    private Long idQuestionEvaluation;
+
 
     @Column(name = "ID_RUBRIQUE_EVALUATION", nullable = false)
-    private String idRubriqueEvaluation;
+    private Long idRubriqueEvaluation;
 
     @Column(name = "ID_QUESTION")
-    private String idQuestion;
+    private Long idQuestion;
 
     @Column(name = "ID_QUALIFICATIF")
-    private String idQualificatif;
+    private Long idQualificatif;
+
 
     @Column(name = "ORDRE", nullable = false)
-    private String ordre;
+    private Integer ordre;
 
     @Column(name = "INTITULE")
     private String intitule;
 
+
+
+    /**
+     * FK -> RUBRIQUE_EVALUATION
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ID_RUBRIQUE_EVALUATION", insertable = false, updatable = false)
+    @ToString.Exclude
+    private RubriqueEvaluation rubriqueEvaluation;
+
+    /**
+     * FK -> QUESTION
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ID_QUESTION", insertable = false, updatable = false)
+    @ToString.Exclude
+    private Question question;
+
+    /**
+     * FK -> QUALIFICATIF
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ID_QUALIFICATIF", insertable = false, updatable = false)
+    @ToString.Exclude
+    private Qualificatif qualificatif;
+
+
+    /* on gere le XOR entre questiion et qualif dans le front */
 }

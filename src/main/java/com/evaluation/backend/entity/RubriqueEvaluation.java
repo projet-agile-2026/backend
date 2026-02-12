@@ -1,16 +1,11 @@
 package com.evaluation.backend.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-import lombok.ToString;
+import jakarta.persistence.*;
+import lombok.*;
 import lombok.experimental.SuperBuilder;
 
 import java.io.Serializable;
+import java.util.Set;
 
 @Entity
 @Getter
@@ -18,6 +13,7 @@ import java.io.Serializable;
 @ToString
 @SuperBuilder
 @NoArgsConstructor
+@AllArgsConstructor
 @Table(name = "RUBRIQUE_EVALUATION")
 public class RubriqueEvaluation implements Serializable {
 
@@ -25,18 +21,44 @@ public class RubriqueEvaluation implements Serializable {
 
     @Id
     @Column(name = "ID_RUBRIQUE_EVALUATION", nullable = false)
-    private String idRubriqueEvaluation;
+    private Long idRubriqueEvaluation;
+
 
     @Column(name = "ID_EVALUATION", nullable = false)
-    private String idEvaluation;
+    private Long idEvaluation;
 
     @Column(name = "ID_RUBRIQUE")
-    private String idRubrique;
+    private Long idRubrique;
+
 
     @Column(name = "ORDRE", nullable = false)
-    private String ordre;
+    private Integer ordre;
 
     @Column(name = "DESIGNATION")
     private String designation;
 
+
+
+    /**
+     * FK -> EVALUATION(ID_EVALUATION)
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ID_EVALUATION", insertable = false, updatable = false)
+    @ToString.Exclude
+    private Evaluation evaluation;
+
+    /**
+     * FK -> RUBRIQUE(ID_RUBRIQUE)
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ID_RUBRIQUE", insertable = false, updatable = false)
+    @ToString.Exclude
+    private Rubrique rubrique;
+
+    /**
+     * Référence inverse : une rubrique_evaluation contient plusieurs question_evaluation
+     */
+    @OneToMany(mappedBy = "rubriqueEvaluation", fetch = FetchType.LAZY)
+    @ToString.Exclude
+    private Set<QuestionEvaluation> questionsEvaluation;
 }
