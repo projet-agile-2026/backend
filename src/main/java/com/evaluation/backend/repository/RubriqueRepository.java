@@ -23,4 +23,18 @@ public interface RubriqueRepository extends JpaRepository<Rubrique, Long> {
 
     @Query("SELECT MAX(r.ordre) FROM Rubrique r WHERE r.type = :type")
     Integer findMaxOrdreByType(@Param("type") String type);
+
+    /**
+     * Pour vérifier l'unicité d'une rubrique personnelle (RBP) pour un enseignant spécifique.
+     */
+    Optional<Rubrique> findByDesignationAndTypeAndNoEnseignant(String designation, String type, Long noEnseignant);
+
+    /**
+     * La requête "Maître" pour récupérer RBS + RBP d'un enseignant en un seul appel SQL.
+     * C'est beaucoup plus performant que de faire un .findAll() puis un stream filter.
+     */
+    @Query("SELECT r FROM Rubrique r WHERE r.type = 'RBS' " +
+           "OR (r.type = 'RBP' AND r.noEnseignant = :noEnseignant) " +
+           "ORDER BY r.ordre ASC")
+    List<Rubrique> findForEnseignant(@Param("noEnseignant") Long noEnseignant);
 }
