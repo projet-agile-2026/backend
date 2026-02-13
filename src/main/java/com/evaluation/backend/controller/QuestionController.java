@@ -1,6 +1,7 @@
 package com.evaluation.backend.controller;
 
 import com.evaluation.backend.dto.Question.QuestionDTO;
+import com.evaluation.backend.dto.Question.QuestionWithQualificatifDTO;
 import com.evaluation.backend.service.QuestionService;
 import com.evaluation.backend.entity.Question;
 import com.evaluation.backend.entity.Authentification;
@@ -56,7 +57,7 @@ public class QuestionController {
             String role = extractRole(authentication);
             String noEnseignant = "ROLE_ENS".equals(role) ? getConnectedEnseignantId(authentication) : null;
             String simpleRole = role.replace("ROLE_", "");
-            Question updatedQuestion = questionService.updateQuestion(id, questionDetails, simpleRole, noEnseignant);
+            QuestionWithQualificatifDTO updatedQuestion = questionService.updateQuestion(id, questionDetails, simpleRole, noEnseignant);
             return ResponseEntity.ok(updatedQuestion);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());

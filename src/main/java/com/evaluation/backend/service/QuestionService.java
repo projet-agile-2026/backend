@@ -7,12 +7,18 @@ import com.evaluation.backend.repository.QualificatifRepository;
 import com.evaluation.backend.entity.Question;
 import com.evaluation.backend.entity.Qualificatif;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
+
+
+
 @Service
+
 public class QuestionService {
     private final QuestionRepository questionRepository;
     private final QualificatifRepository qualificatifRepository;
+
 
     public QuestionService(QuestionRepository questionRepository, QualificatifRepository qualificatifRepository) {
         this.questionRepository = questionRepository;
@@ -52,35 +58,95 @@ public class QuestionService {
                 .map(this::mapToDTO).toList();
     }
 
+    //public Question createQuestion(Question question, String role, String noEnseignant) {
+        //if ("ENS".equals(role)) {
+            //question.setNoEnseignant(noEnseignant);
+            //question.setType("QUP");
+        //} else if ("ADM".equals(role)){
+            //question.setNoEnseignant(null);
+            //question.setType("QUS");
+        //}
+       // return questionRepository.save(question);
+    //}//
+    @Transactional
     public Question createQuestion(Question question, String role, String noEnseignant) {
+
         if ("ENS".equals(role)) {
             question.setNoEnseignant(noEnseignant);
             question.setType("QUP");
-        } else if ("ADM".equals(role)){
+        } else if ("ADM".equals(role)) {
             question.setNoEnseignant(null);
             question.setType("QUS");
         }
-        return questionRepository.save(question);
-    }
 
-    public Question updateQuestion(Long id, Question details, String role, String noEnseignant) {
-        return questionRepository.findById(id).map(q -> {
+        Question saved = questionRepository.save(question);
+
+        // 🔥 Charger manuellement le qualificatif
+        if (saved.getIdQualificatif() != null) {
+            Qualificatif qual = qualificatifRepository
+                    .findById(Long.valueOf(saved.getIdQualificatif()))
+                    .orElse(null);
+
+            saved.setQualificatif(qual);
+        }
+
+        return saved;
+    }
+    @Transactional
+    public QuestionWithQualificatifDTO updateQuestion(Long id, Question details, String role, String noEnseignant) {
+        Question updated = questionRepository.findById(id).map(q -> {
+
+            // Vérifications de rôle
             if ("ENS".equals(role) && !isOwner(q, noEnseignant)) {
                 throw new RuntimeException("Action interdite : propriétaire différent");
+            } else if ("ENS".equals(role) && "QUS".equals(details.getType())) {
+                throw new RuntimeException("l'enseignant ne peut pas modifier une question standard");
+            } else if ("ADM".equals(role) && "QUP".equals(details.getType())) {
+                throw new RuntimeException("l'admin ne peut pas modifier une question personnelle");
             }
-            else if ("ENS".equals(role) && "QUS".equals(details.getType())){
-                throw new RuntimeException("l'enseignant ne peut pas modifier une question standard" );
 
-            }
-            else if ("ADM".equals(role) && "QUP".equals(details.getType())){
-                throw new RuntimeException("l'admin  ne peut pas modifier une question personnelle" );
-
-            }
+            // Mise à jour
             q.setIntitule(details.getIntitule());
             q.setIdQualificatif(details.getIdQualificatif());
+
             return questionRepository.save(q);
         }).orElseThrow(() -> new RuntimeException("Question introuvable"));
+
+        // 🔥 Charger le Qualificatif
+        Qualificatif qual = qualificatifRepository
+                .findById(Long.valueOf(updated.getIdQualificatif()))
+                .orElseThrow(() -> new RuntimeException("Qualificatif introuvable"));
+
+        // 🔥 Mapper vers le DTO
+        return QuestionWithQualificatifDTO.builder()
+                .idQuestion(updated.getIdQuestion())
+                .type(updated.getType())
+                .noEnseignant(updated.getNoEnseignant())
+                .intitule(updated.getIntitule())
+                .idQualificatif(qual.getIdQualificatif())
+                .minimal(qual.getMinimal())
+                .maximal(qual.getMaximal())
+                .ordre(updated.getIdQuestion().intValue()) // exemple si tu veux ordre temporaire
+                .build();
     }
+//    public Question updateQuestion(Long id, Question details, String role, String noEnseignant) {
+//        return questionRepository.findById(id).map(q -> {
+//            if ("ENS".equals(role) && !isOwner(q, noEnseignant)) {
+//                throw new RuntimeException("Action interdite : propriétaire différent");
+//            }
+//            else if ("ENS".equals(role) && "QUS".equals(details.getType())){
+//                throw new RuntimeException("l'enseignant ne peut pas modifier une question standard" );
+//
+//            }
+//            else if ("ADM".equals(role) && "QUP".equals(details.getType())){
+//                throw new RuntimeException("l'admin  ne peut pas modifier une question personnelle" );
+//
+//            }
+//            q.setIntitule(details.getIntitule());
+//            q.setIdQualificatif(details.getIdQualificatif());
+//            return questionRepository.save(q);
+//        }).orElseThrow(() -> new RuntimeException("Question introuvable"));
+//    }
 
     public void deleteQuestion(Long id, String role, String noEnseignant) {
         Question q = questionRepository.findById(id).orElseThrow(() -> new RuntimeException("Introuvable"));
