@@ -5,6 +5,7 @@ import lombok.*;
 import lombok.experimental.SuperBuilder;
 
 import java.io.Serializable;
+import java.time.LocalDate;
 
 @Entity
 @Getter
@@ -20,8 +21,15 @@ public class Evaluation implements Serializable {
 
 
     @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "evaluation_seq_gen")
+    @SequenceGenerator(
+            name = "evaluation_seq_gen",
+            sequenceName = "EVALUATION_SEQ",
+            allocationSize = 1
+    )
     @Column(name = "ID_EVALUATION", nullable = false)
     private Long idEvaluation;
+
 
 
     @Column(name = "NO_ENSEIGNANT", nullable = false)
@@ -52,10 +60,10 @@ public class Evaluation implements Serializable {
     private String periode;
 
     @Column(name = "DEBUT_REPONSE")
-    private String debutReponse;
+    private LocalDate debutReponse;
 
     @Column(name = "FIN_REPONSE")
-    private String finReponse;
+    private LocalDate finReponse;
 
 
 
