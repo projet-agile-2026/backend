@@ -25,4 +25,6 @@ public class QuestionDTO {
 
     @NotBlank(message = "L'intitulé est obligatoire")
     private String intitule;
+
+
 }

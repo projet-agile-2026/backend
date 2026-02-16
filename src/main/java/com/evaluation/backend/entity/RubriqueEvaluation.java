@@ -20,6 +20,12 @@ public class RubriqueEvaluation implements Serializable {
     private static final long serialVersionUID = 1L;
 
     @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "rubrique_eval_seq_gen")
+    @SequenceGenerator(
+            name = "rubrique_eval_seq_gen",
+            sequenceName = "REV_SEQ",
+            allocationSize = 1
+    )
     @Column(name = "ID_RUBRIQUE_EVALUATION", nullable = false)
     private Long idRubriqueEvaluation;
 

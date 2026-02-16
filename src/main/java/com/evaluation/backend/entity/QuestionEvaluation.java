@@ -20,6 +20,12 @@ public class QuestionEvaluation implements Serializable {
 
 
     @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "question_eval_seq_gen")
+    @SequenceGenerator(
+            name = "question_eval_seq_gen",
+            sequenceName = "QEV_SEQ",
+            allocationSize = 1
+    )
     @Column(name = "ID_QUESTION_EVALUATION", nullable = false)
     private Long idQuestionEvaluation;
 
