@@ -2,6 +2,7 @@ package com.evaluation.backend.controller;
 
 import com.evaluation.backend.dto.Question.QuestionDTO;
 import com.evaluation.backend.dto.Question.QuestionWithQualificatifDTO;
+import com.evaluation.backend.repository.RubriqueQuestionRepository;
 import com.evaluation.backend.service.QuestionService;
 import com.evaluation.backend.entity.Question;
 import com.evaluation.backend.entity.Authentification;
@@ -19,10 +20,12 @@ public class QuestionController {
 
     private final QuestionService questionService;
     private final AuthentificationRepository authentificationRepository;
+    private final RubriqueQuestionRepository rubriqueQuestionRepository;
 
-    public QuestionController(QuestionService questionService, AuthentificationRepository authentificationRepository) {
+    public QuestionController(QuestionService questionService, AuthentificationRepository authentificationRepository, RubriqueQuestionRepository rubriqueQuestionRepository) {
         this.questionService = questionService;
         this.authentificationRepository = authentificationRepository;
+        this.rubriqueQuestionRepository = rubriqueQuestionRepository;
     }
 
     @GetMapping
