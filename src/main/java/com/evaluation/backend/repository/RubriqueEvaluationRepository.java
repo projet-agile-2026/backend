@@ -19,6 +19,8 @@ public interface RubriqueEvaluationRepository extends JpaRepository<RubriqueEval
     @Query("SELECT MAX(re.ordre) FROM RubriqueEvaluation re WHERE re.idEvaluation = :idEvaluation")
     Integer findMaxOrdreByEvaluation(@Param("idEvaluation") Long idEvaluation);
 
+    boolean existsByIdRubrique(Long idRubrique);
+
     boolean existsByIdEvaluationAndIdRubrique(Long idEvaluation, Long idRubrique);
 
     @Modifying

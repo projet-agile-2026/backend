@@ -31,6 +31,8 @@ public class RubriqueDTO implements Serializable {
 
     private Integer ordre;
 
+    private boolean usedInEval;
+
     // Include questions with qualificatifs when fetching rubrique details
     private List<QuestionWithQualificatifDTO> questions;
 }

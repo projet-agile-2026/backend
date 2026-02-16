@@ -9,6 +9,7 @@ import com.evaluation.backend.exception.DuplicateResourceException;
 import com.evaluation.backend.exception.InvalidOrderException;
 import com.evaluation.backend.exception.ResourceNotFoundException;
 import com.evaluation.backend.mapper.RubriqueMapper;
+import com.evaluation.backend.repository.RubriqueEvaluationRepository;
 import com.evaluation.backend.repository.RubriqueQuestionRepository;
 import com.evaluation.backend.repository.RubriqueRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,7 @@ public class RubriqueService {
 
     private final RubriqueRepository rubriqueRepository;
     private final RubriqueQuestionRepository rubriqueQuestionRepository;
+    private final RubriqueEvaluationRepository rubriqueEvaluationRepository;
     private final RubriqueMapper rubriqueMapper;
     private final QuestionService questionService;
     @Transactional(readOnly = true)
@@ -61,11 +63,16 @@ public class RubriqueService {
             rubriques = new ArrayList<>();
         }
 
-        // Conversion en DTO via le mapper injecté
+    // Conversion en DTO via le mapper injecté
         List<RubriqueDTO> rubriqueDTOs = rubriqueMapper.toDTOList(rubriques);
 
-        // Enrichissement avec les questions
+    // Enrichissement avec les questions ET usedInEval
         for (RubriqueDTO rubriqueDTO : rubriqueDTOs) {
+            // Check if rubrique is used in any evaluation
+            boolean isUsed = rubriqueEvaluationRepository.existsByIdRubrique(rubriqueDTO.getIdRubrique());
+            rubriqueDTO.setUsedInEval(isUsed);
+
+            // Questions
             List<QuestionWithQualificatifDTO> questions =
                     getQuestionsWithQualificatifsForRubrique(rubriqueDTO.getIdRubrique());
             rubriqueDTO.setQuestions(questions);
