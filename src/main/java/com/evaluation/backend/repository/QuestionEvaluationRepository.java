@@ -15,4 +15,7 @@ public interface QuestionEvaluationRepository extends JpaRepository<QuestionEval
     List<QuestionEvaluation> findByIdRubriqueEvaluationOrderByOrdreAsc(@Param("idRubriqueEvaluation") Long idRubriqueEvaluation);
 
     boolean existsByIdRubriqueEvaluationAndIdQuestion(Long idRubriqueEvaluation, Long idQuestion);
+
+    @Query("SELECT MAX(qe.ordre) FROM QuestionEvaluation qe WHERE qe.idRubriqueEvaluation = :idRubriqueEvaluation")
+    Integer findMaxOrdreByRubriqueEvaluation(@Param("idRubriqueEvaluation") Long idRubriqueEvaluation);
 }

@@ -86,14 +86,14 @@ public class EvaluationController {
     // US 6.5: Gestion des rubriques d'une évaluation
 
     @PostMapping("/{id}/rubriques")
-    public ResponseEntity<Void> addRubriqueToEvaluation(
+    public ResponseEntity<RubriqueEvaluationDTO> addRubriqueToEvaluation(
             @PathVariable Long id,
             @Valid @RequestBody AddRubriqueToEvaluationRequest request,
             Authentication authentication) {
 
         Long noEnseignant = getConnectedEnseignantId(authentication);
-        service.addRubriqueToEvaluation(id, request, noEnseignant);
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+        RubriqueEvaluationDTO result = service.addRubriqueToEvaluation(id, request, noEnseignant);
+        return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
     @DeleteMapping("/{evaluationId}/rubriques/{rubriqueEvaluationId}")
@@ -120,16 +120,17 @@ public class EvaluationController {
 
     // US 6.6: Gestion des questions d'une rubrique d'évaluation
 
+
     @PostMapping("/{evaluationId}/rubriques/{rubriqueEvaluationId}/questions")
-    public ResponseEntity<Void> addQuestionToRubriqueEvaluation(
+    public ResponseEntity<RubriqueEvaluationDTO> addQuestionToRubriqueEvaluation(
             @PathVariable Long evaluationId,
             @PathVariable Long rubriqueEvaluationId,
             @Valid @RequestBody AddQuestionToRubriqueEvaluationRequest request,
             Authentication authentication) {
 
         Long noEnseignant = getConnectedEnseignantId(authentication);
-        service.addQuestionToRubriqueEvaluation(evaluationId, rubriqueEvaluationId, request, noEnseignant);
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+        RubriqueEvaluationDTO result = service.addQuestionToRubriqueEvaluation(evaluationId, rubriqueEvaluationId, request, noEnseignant);
+        return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
     @DeleteMapping("/{evaluationId}/rubriques/{rubriqueEvaluationId}/questions/{questionEvaluationId}")

@@ -15,6 +15,5 @@ public class AddQuestionToRubriqueEvaluationRequest {
     @NotNull(message = "Question ID is required")
     private Long idQuestion;
 
-    @NotNull(message = "Ordre is required")
     private Integer ordre;
 }

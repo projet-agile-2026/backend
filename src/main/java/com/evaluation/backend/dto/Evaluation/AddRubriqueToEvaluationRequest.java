@@ -15,7 +15,7 @@ public class AddRubriqueToEvaluationRequest {
     @NotNull(message = "Rubrique ID is required")
     private Long idRubrique;
 
-    @NotNull(message = "Ordre is required")
+
     private Integer ordre;
 
     // Optionnel : pour les rubriques composées personnalisées

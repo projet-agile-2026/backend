@@ -202,8 +202,9 @@ public class EvaluationServiceImpl implements EvaluationService {
                 .build();
     }
 
+
     @Override
-    public void addRubriqueToEvaluation(Long evaluationId, AddRubriqueToEvaluationRequest request, Long noEnseignant) {
+    public RubriqueEvaluationDTO addRubriqueToEvaluation(Long evaluationId, AddRubriqueToEvaluationRequest request, Long noEnseignant) {
         log.debug("Adding rubrique {} to evaluation {}", request.getIdRubrique(), evaluationId);
 
         // Vérifier que l'évaluation existe et appartient à l'enseignant
@@ -214,9 +215,8 @@ public class EvaluationServiceImpl implements EvaluationService {
             throw new BusinessException("Vous n'avez pas le droit de modifier cette évaluation");
         }
 
-
-        // Vérifier que la rubrique existe (lève une exception si elle n'existe pas)
-        rubriqueService.getRubriqueById(request.getIdRubrique());
+        // Vérifier que la rubrique existe
+        RubriqueDTO rubriqueDTO = rubriqueService.getRubriqueById(request.getIdRubrique());
 
         // Vérifier qu'elle n'est pas déjà dans l'évaluation
         if (rubriqueEvaluationRepository.existsByIdEvaluationAndIdRubrique(evaluationId, request.getIdRubrique())) {
@@ -224,18 +224,36 @@ public class EvaluationServiceImpl implements EvaluationService {
                     evaluationId + " - " + request.getIdRubrique());
         }
 
-
+        //  Auto-incrémenter l'ordre si non fourni
+        Integer ordre = request.getOrdre();
+        if (ordre == null) {
+            Integer maxOrdre = rubriqueEvaluationRepository.findMaxOrdreByEvaluation(evaluationId);
+            ordre = maxOrdre == null ? 1 : maxOrdre + 1;
+        }
 
         RubriqueEvaluation rubriqueEvaluation = RubriqueEvaluation.builder()
                 .idEvaluation(evaluationId)
                 .idRubrique(request.getIdRubrique())
-                .ordre(request.getOrdre())
+                .ordre(ordre)
                 .designation(request.getDesignation())
                 .build();
 
-        rubriqueEvaluationRepository.save(rubriqueEvaluation);
-        log.info("Added rubrique {} to evaluation {} with ordre {}", request.getIdRubrique(), evaluationId, request.getOrdre());
+        RubriqueEvaluation saved = rubriqueEvaluationRepository.save(rubriqueEvaluation);
+        log.info("Added rubrique {} to evaluation {} with ordre {}", request.getIdRubrique(), evaluationId, ordre);
+
+        // Retourner le DTO
+        return RubriqueEvaluationDTO.builder()
+                .idRubriqueEvaluation(saved.getIdRubriqueEvaluation())
+                .idEvaluation(saved.getIdEvaluation())
+                .idRubrique(saved.getIdRubrique())
+                .ordre(saved.getOrdre())
+                .designation(saved.getDesignation())
+                .type(rubriqueDTO.getType())
+                .questions(rubriqueDTO.getQuestions())
+                .build();
     }
+
+
 
     @Override
     public void removeRubriqueFromEvaluation(Long evaluationId, Long rubriqueEvaluationId, Long noEnseignant) {
@@ -282,10 +300,9 @@ public class EvaluationServiceImpl implements EvaluationService {
 
         log.info("Reordered {} rubriques in evaluation {}", request.getRubriqueOrders().size(), evaluationId);
     }
-
     @Override
-    public void addQuestionToRubriqueEvaluation(Long evaluationId, Long rubriqueEvaluationId,
-                                                AddQuestionToRubriqueEvaluationRequest request, Long noEnseignant) {
+    public RubriqueEvaluationDTO addQuestionToRubriqueEvaluation(Long evaluationId, Long rubriqueEvaluationId,
+                                                                 AddQuestionToRubriqueEvaluationRequest request, Long noEnseignant) {
         log.debug("Adding question {} to rubrique evaluation {}", request.getIdQuestion(), rubriqueEvaluationId);
 
         // Vérifier que l'évaluation existe et appartient à l'enseignant
@@ -316,18 +333,30 @@ public class EvaluationServiceImpl implements EvaluationService {
                     rubriqueEvaluationId + " - " + request.getIdQuestion());
         }
 
-
-
+        //  Auto-incrémenter l'ordre si non fourni
+        Integer ordre = request.getOrdre();
+        if (ordre == null) {
+            Integer maxOrdre = questionEvaluationRepository.findMaxOrdreByRubriqueEvaluation(rubriqueEvaluationId);
+            ordre = maxOrdre == null ? 1 : maxOrdre + 1;
+        }
 
         QuestionEvaluation questionEvaluation = QuestionEvaluation.builder()
                 .idRubriqueEvaluation(rubriqueEvaluationId)
                 .idQuestion(request.getIdQuestion())
-                .ordre(request.getOrdre())
+                .ordre(ordre)
                 .build();
 
         questionEvaluationRepository.save(questionEvaluation);
         log.info("Added question {} to rubrique evaluation {}", request.getIdQuestion(), rubriqueEvaluationId);
+
+        //  Retourner le DTO complet avec toutes les questions
+        EvaluationWithRubriquesDTO evalWithRub = getByIdWithRubriques(evaluationId);
+        return evalWithRub.getRubriques().stream()
+                .filter(r -> r.getIdRubriqueEvaluation().equals(rubriqueEvaluationId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("RubriqueEvaluation", "id", rubriqueEvaluationId));
     }
+
 
     @Override
     public void removeQuestionFromRubriqueEvaluation(Long evaluationId, Long rubriqueEvaluationId,

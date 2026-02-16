@@ -26,7 +26,7 @@ public interface EvaluationService {
     List<String> getCodeEc(String codeFormation, String codeUe);
 
     // US 6.5: Définir les rubriques d'une évaluation
-    void addRubriqueToEvaluation(Long evaluationId, AddRubriqueToEvaluationRequest request, Long noEnseignant);
+    RubriqueEvaluationDTO addRubriqueToEvaluation(Long evaluationId, AddRubriqueToEvaluationRequest request, Long noEnseignant);
 
     void removeRubriqueFromEvaluation(Long evaluationId, Long rubriqueEvaluationId, Long noEnseignant);
 
@@ -34,7 +34,7 @@ public interface EvaluationService {
 
     // US 6.6: Définir les questions d'une rubrique d'évaluation
 
-    void addQuestionToRubriqueEvaluation(Long evaluationId, Long rubriqueEvaluationId,
+    RubriqueEvaluationDTO addQuestionToRubriqueEvaluation(Long evaluationId, Long rubriqueEvaluationId,
                                          AddQuestionToRubriqueEvaluationRequest request, Long noEnseignant);
 
     void removeQuestionFromRubriqueEvaluation(Long evaluationId, Long rubriqueEvaluationId,
