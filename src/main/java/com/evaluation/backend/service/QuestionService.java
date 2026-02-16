@@ -6,6 +6,7 @@ import com.evaluation.backend.repository.QuestionRepository;
 import com.evaluation.backend.repository.QualificatifRepository;
 import com.evaluation.backend.entity.Question;
 import com.evaluation.backend.entity.Qualificatif;
+import com.evaluation.backend.repository.RubriqueQuestionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
@@ -18,11 +19,13 @@ import java.util.List;
 public class QuestionService {
     private final QuestionRepository questionRepository;
     private final QualificatifRepository qualificatifRepository;
+    private final RubriqueQuestionRepository rubriqueQuestionRepository;
 
 
-    public QuestionService(QuestionRepository questionRepository, QualificatifRepository qualificatifRepository) {
+    public QuestionService(QuestionRepository questionRepository, QualificatifRepository qualificatifRepository, RubriqueQuestionRepository rubriqueQuestionRepository) {
         this.questionRepository = questionRepository;
         this.qualificatifRepository = qualificatifRepository;
+        this.rubriqueQuestionRepository = rubriqueQuestionRepository;
     }
 
     public QuestionWithQualificatifDTO getQuestionWithQualificatifById(Long questionId) {
@@ -47,15 +50,26 @@ public class QuestionService {
     }
 
     public List<QuestionDTO> getAllQuestions(String noEnseignant) {
-        return questionRepository.findAll().stream()
-                .filter(q -> ("QUS".equals(q.getType()) || isOwner(q, noEnseignant) ))
-                .map(this::mapToDTO).toList();
+
+        List<Question> questions = questionRepository.findAll();
+
+        List<Long> usedIds = rubriqueQuestionRepository.findAllUsedQuestionIds();
+
+        return questions.stream()
+                .filter(q -> ("QUS".equals(q.getType()) || isOwner(q, noEnseignant)))
+                .map(q -> mapToDTO(q, usedIds))
+                .toList();
     }
 
+
     public List<QuestionDTO> getQuestionsForAdmin() {
+
+        List<Long> usedIds = rubriqueQuestionRepository.findAllUsedQuestionIds();
+
         return questionRepository.findAll().stream()
-                .filter(q -> ("QUS".equals(q.getType()) && q.getNoEnseignant() == null) )
-                .map(this::mapToDTO).toList();
+                .filter(q -> ("QUS".equals(q.getType()) && q.getNoEnseignant() == null))
+                .map(q -> mapToDTO(q, usedIds))
+                .toList();
     }
 
     //public Question createQuestion(Question question, String role, String noEnseignant) {
@@ -168,7 +182,18 @@ public class QuestionService {
         return q.getNoEnseignant().trim().equals(noEnseignant.trim());
     }
 
-    private QuestionDTO mapToDTO(Question q) {
-        return new QuestionDTO(q.getIdQuestion(), q.getType(), q.getNoEnseignant(), q.getIdQualificatif(), q.getIntitule());
+    private QuestionDTO mapToDTO(Question question, List<Long> usedIds) {
+
+        QuestionDTO dto = new QuestionDTO();
+
+        dto.setIdQuestion(question.getIdQuestion());
+        dto.setType(question.getType());
+        dto.setNoEnseignant(question.getNoEnseignant());
+        dto.setIdQualificatif(question.getIdQualificatif());
+        dto.setIntitule(question.getIntitule());
+        dto.setUsedInRubrique(usedIds.contains(question.getIdQuestion()));
+
+        return dto;
     }
+
 }
