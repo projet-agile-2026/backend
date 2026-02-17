@@ -13,7 +13,7 @@ public interface EvaluationService {
 
     EvaluationWithRubriquesDTO getByIdWithRubriques(Long id);
 
-    EvaluationResponseDTO create(EvaluationRequestDTO dto);
+    EvaluationResponseDTO create(EvaluationRequestDTO dto, Long noEnseignant);
 
     EvaluationResponseDTO update(Long id, EvaluationRequestDTO dto);
 

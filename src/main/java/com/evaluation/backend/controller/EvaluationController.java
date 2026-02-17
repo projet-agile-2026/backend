@@ -59,8 +59,10 @@ public class EvaluationController {
 
 
     @PostMapping
-    public EvaluationResponseDTO create(@Valid @RequestBody EvaluationRequestDTO dto) {
-        return service.create(dto);
+    public EvaluationResponseDTO create(@Valid @RequestBody EvaluationRequestDTO dto, Authentication authentication) {
+        Long noEnseignant = getConnectedEnseignantId(authentication);
+        System.out.println("noEnseignant : " + noEnseignant);
+        return service.create(dto, noEnseignant);
     }
 
 

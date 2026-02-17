@@ -66,10 +66,12 @@ public class EvaluationServiceImpl implements EvaluationService {
     }
 
     @Override
-    public EvaluationResponseDTO create(EvaluationRequestDTO dto) {
+    public EvaluationResponseDTO create(EvaluationRequestDTO dto, Long noEnseignant) {
         validateEtat(dto.getEtat());
 
         Evaluation e = mapper.toEntity(dto);
+
+        e.setNoEnseignant(noEnseignant);
 
         Evaluation saved = repository.save(e);
 
