@@ -19,6 +19,10 @@ public class QuestionWithQualificatifDTO implements Serializable {
     private String intitule;
     private Integer ordre;  // Set by RubriqueService (ordre within rubrique)
 
+    // Helper
+    private Long idQuestionEvaluation;
+
+
     // Qualificatif details
     private Long idQualificatif;
     private String maximal;  // mot1
