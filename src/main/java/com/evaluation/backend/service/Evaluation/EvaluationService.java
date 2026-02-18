@@ -1,5 +1,8 @@
 package com.evaluation.backend.service.Evaluation;
 
+import com.evaluation.backend.dto.Droit.DroitRequestDTO;
+import com.evaluation.backend.dto.Droit.DroitResponseDTO;
+import com.evaluation.backend.dto.Droit.DroitTousRequestDTO;
 import com.evaluation.backend.dto.Evaluation.EvaluationRequestDTO;
 import com.evaluation.backend.dto.Evaluation.EvaluationResponseDTO;
 import com.evaluation.backend.dto.Evaluation.*;
@@ -42,4 +45,18 @@ public interface EvaluationService {
 
     void reorderQuestionsInRubriqueEvaluation(Long evaluationId, Long rubriqueEvaluationId,
                                               ReorderQuestionsInRubriqueEvaluationRequest request, Long noEnseignant);
+
+
+    // us droit + duplication
+    // US 6.10
+    List<EvaluationResponseDTO> listEvaluationsPartagees();
+
+    // US 6.11
+    EvaluationResponseDTO dupliquerEvaluation(Long idEvaluation);
+
+    // US 6.9
+    List<DroitResponseDTO> listDroits(Long idEvaluation);
+    DroitResponseDTO upsertDroit(Long idEvaluation, DroitRequestDTO dto);
+    void deleteDroit(Long idEvaluation, Long noEnseignantCible);
+    DroitResponseDTO donnerDroitATous(Long idEvaluation, DroitTousRequestDTO dto);
 }
