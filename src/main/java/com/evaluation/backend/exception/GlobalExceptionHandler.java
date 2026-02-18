@@ -7,10 +7,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.orm.jpa.JpaSystemException;
 import org.springframework.transaction.TransactionSystemException;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.dao.DataIntegrityViolationException;
+import java.sql.SQLException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -26,25 +28,61 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleResourceNotFoundException(
             ResourceNotFoundException ex, HttpServletRequest request) {
-        return buildError(HttpStatus.NOT_FOUND, ex.getMessage(), request);
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.NOT_FOUND.value())
+                .error(HttpStatus.NOT_FOUND.getReasonPhrase())
+                .message(ex.getMessage())
+                .path(request.getRequestURI())
+                .build();
+
+        return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
     }
 
     @ExceptionHandler(DuplicateResourceException.class)
     public ResponseEntity<ErrorResponse> handleDuplicateResourceException(
             DuplicateResourceException ex, HttpServletRequest request) {
-        return buildError(HttpStatus.CONFLICT, ex.getMessage(), request);
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.CONFLICT.value())
+                .error(HttpStatus.CONFLICT.getReasonPhrase())
+                .message(ex.getMessage())
+                .path(request.getRequestURI())
+                .build();
+
+        return new ResponseEntity<>(errorResponse, HttpStatus.CONFLICT);
     }
 
     @ExceptionHandler(InvalidOrderException.class)
     public ResponseEntity<ErrorResponse> handleInvalidOrderException(
             InvalidOrderException ex, HttpServletRequest request) {
-        return buildError(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
+                .message(ex.getMessage())
+                .path(request.getRequestURI())
+                .build();
+
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusinessException(
             BusinessException ex, HttpServletRequest request) {
-        return buildError(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
+                .message(ex.getMessage())
+                .path(request.getRequestURI())
+                .build();
+
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
 
     // =========================================================
@@ -67,8 +105,8 @@ public class GlobalExceptionHandler {
         ErrorResponse errorResponse = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
                 .status(HttpStatus.BAD_REQUEST.value())
-                .error("Validation échouée")
-                .message("Données de saisie invalides. Veuillez vérifier les champs.")
+                .error("Validation Failed")
+                .message("Invalid input data")
                 .path(request.getRequestURI())
                 .validationErrors(validationErrors)
                 .build();
@@ -81,12 +119,6 @@ public class GlobalExceptionHandler {
     // QualificatifService, QuestionService, EvaluationService
     // utilisent des RuntimeException avec messages en français
     // =========================================================
-
-    @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(
-            DataIntegrityViolationException ex, HttpServletRequest request) {
-        return handleDatabaseExceptions(ex, request);
-    }
 
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ErrorResponse> handleRuntimeException(
@@ -178,10 +210,11 @@ public class GlobalExceptionHandler {
     }
 
     // =========================================================
-    // Erreurs base de données Oracle
+    // Erreurs base de données Oracle (Promotion / Etudiant) : ADM KOLO
     // =========================================================
 
     @ExceptionHandler({
+            DataIntegrityViolationException.class,
             JpaSystemException.class,
             TransactionSystemException.class,
             ConstraintViolationException.class,
@@ -193,14 +226,14 @@ public class GlobalExceptionHandler {
         String oracleCode = extractOraCode(msg);
         String constraint = extractConstraintName(msg);
 
-        // ORA-12899 : valeur trop grande
+        // ORA-12899 : valeur trop grande pour colonne
         if ("ORA-12899".equals(oracleCode)) {
             return buildError(HttpStatus.BAD_REQUEST,
                     "Texte trop long. Veuillez raccourcir la valeur saisie.",
                     request);
         }
 
-        // ORA-01400 : null sur NOT NULL
+        // ORA-01400 : null sur champ NOT NULL
         if ("ORA-01400".equals(oracleCode)) {
             return buildError(HttpStatus.BAD_REQUEST,
                     "Veuillez remplir tous les champs obligatoires.",
@@ -225,11 +258,11 @@ public class GlobalExceptionHandler {
                         request);
             }
             return buildError(HttpStatus.BAD_REQUEST,
-                    "Valeur invalide détectée. Veuillez vérifier les champs saisis.",
+                    "Valeur invalide. Veuillez vérifier les champs.",
                     request);
         }
 
-        // ORA-00001 : Unicité (PK / UK)
+        // ORA-00001 : unique constraint / PK
         if ("ORA-00001".equals(oracleCode)) {
             if ("PRO_PK".equals(constraint)) {
                 return buildError(HttpStatus.CONFLICT,
@@ -413,7 +446,7 @@ public class GlobalExceptionHandler {
                     request);
         }
 
-        // ORA-02292 : Suppression bloquée
+        // ORA-02292 : suppression impossible (enfants existent)
         if ("ORA-02292".equals(oracleCode)) {
             if ("ETU_PRO_FK".equals(constraint)) {
                 return buildError(HttpStatus.CONFLICT,
@@ -511,7 +544,7 @@ public class GlobalExceptionHandler {
         }
 
         return buildError(HttpStatus.BAD_REQUEST,
-                "Erreur de base de données. Veuillez vérifier vos données et réessayer.",
+                "Erreur de saisie. Veuillez vérifier vos données.",
                 request);
     }
 
@@ -522,9 +555,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGlobalException(
             Exception ex, HttpServletRequest request) {
-        return buildError(HttpStatus.INTERNAL_SERVER_ERROR,
-                "Une erreur inattendue s'est produite. Veuillez contacter l'administrateur.",
-                request);
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                .error(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase())
+                .message("An unexpected error occurred: " + ex.getMessage())
+                .path(request.getRequestURI())
+                .build();
+
+        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     // =========================================================
@@ -552,7 +592,7 @@ public class GlobalExceptionHandler {
         if (message == null) return null;
         int idx = message.indexOf("ORA-");
         if (idx < 0) return null;
-        int end = Math.min(idx + 9, message.length());
+        int end = Math.min(idx + 9, message.length()); // "ORA-12899"
         return message.substring(idx, end);
     }
 
@@ -583,6 +623,13 @@ public class GlobalExceptionHandler {
             }
         }
 
-        return null;
+        // Fallback Oracle : parenthèses simples
+        int open = message.indexOf('(');
+        int close = message.indexOf(')', open + 1);
+        if (open < 0 || close < 0) return null;
+        String inside = message.substring(open + 1, close).trim()
+                .replace("\"", "").replace(" ", "");
+        int dot = inside.lastIndexOf('.');
+        return dot >= 0 ? inside.substring(dot + 1) : inside;
     }
 }
