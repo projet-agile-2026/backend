@@ -47,7 +47,7 @@ public class Evaluation implements Serializable {
     @Column(name = "CODE_EC", nullable = false)
     private String codeEc;
 
-    @Column(name = "NO_EVALUATION", nullable = false)
+    @Column(name = "NO_EVALUATION")
     private Short noEvaluation; // si VARCHAR en BD -> String
 
     @Column(name = "DESIGNATION", nullable = false)

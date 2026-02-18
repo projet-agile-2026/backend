@@ -11,9 +11,6 @@ import java.time.LocalDate;
 @Setter
 public class EvaluationRequestDTO {
 
-    @NotNull
-    private Long noEnseignant;
-
     @NotBlank
     private String codeFormation;
 

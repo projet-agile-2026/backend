@@ -15,7 +15,6 @@ public class EvaluationMapper {
     }
 
     public void updateEntity(Evaluation e, EvaluationRequestDTO dto) {
-        e.setNoEnseignant(dto.getNoEnseignant());
         e.setCodeFormation(dto.getCodeFormation());
         e.setAnneeUniversitaire(dto.getAnneeUniversitaire());
         e.setCodeUe(dto.getCodeUe());
