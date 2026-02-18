@@ -1,5 +1,8 @@
 package com.evaluation.backend.controller;
 
+import com.evaluation.backend.dto.Droit.DroitRequestDTO;
+import com.evaluation.backend.dto.Droit.DroitResponseDTO;
+import com.evaluation.backend.dto.Droit.DroitTousRequestDTO;
 import com.evaluation.backend.dto.Evaluation.EvaluationRequestDTO;
 import com.evaluation.backend.dto.Evaluation.EvaluationResponseDTO;
 import com.evaluation.backend.repository.AuthentificationRepository;
@@ -49,7 +52,6 @@ public class EvaluationController {
                                @PathVariable String codeUe) {
         return service.getCodeEc(codeFormation, codeUe);
     }
-
 
 
     @GetMapping("/{id}")
@@ -167,4 +169,44 @@ public class EvaluationController {
         }
         return Long.valueOf(auth.getEnseignant().getId());
     }
+
+
+    // us droit + duplication
+
+    @GetMapping("/partagees")
+    public List<EvaluationResponseDTO> listPartagees() {
+        return service.listEvaluationsPartagees();
+    }
+
+    // ---------------- US 6.11 ----------------
+    @PostMapping("/{idEvaluation:\\d+}/dupliquer")
+    public EvaluationResponseDTO dupliquer(@PathVariable Long idEvaluation) {
+        return service.dupliquerEvaluation(idEvaluation);
+    }
+
+    // ---------------- US 6.9 ----------------
+    @GetMapping("/{idEvaluation:\\d+}/droits")
+    public List<DroitResponseDTO> listDroits(@PathVariable Long idEvaluation) {
+        return service.listDroits(idEvaluation);
+    }
+
+    @PostMapping("/{idEvaluation:\\d+}/droits")
+    public DroitResponseDTO upsertDroit(@PathVariable Long idEvaluation,
+                                        @Valid @RequestBody DroitRequestDTO dto) {
+        return service.upsertDroit(idEvaluation, dto);
+    }
+
+    @DeleteMapping("/{idEvaluation:\\d+}/droits/{noEnseignantCible:\\d+}")
+    public void deleteDroit(@PathVariable Long idEvaluation,
+                            @PathVariable Long noEnseignantCible) {
+        service.deleteDroit(idEvaluation, noEnseignantCible);
+    }
+
+    @PostMapping("/{idEvaluation:\\d+}/droits/tous")
+    public DroitResponseDTO donnerDroitATous(@PathVariable Long idEvaluation,
+                                             @Valid @RequestBody DroitTousRequestDTO dto) {
+        return service.donnerDroitATous(idEvaluation, dto);
+    }
+
+
 }

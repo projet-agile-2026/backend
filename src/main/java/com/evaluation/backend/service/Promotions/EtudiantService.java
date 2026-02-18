@@ -10,6 +10,7 @@ import com.evaluation.backend.mapper.EtudiantMapper;
 import com.evaluation.backend.repository.EtudiantRepository;
 import com.evaluation.backend.repository.PromotionRepository;
 import com.evaluation.backend.service.Promotions.PromotionRulesService;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -89,11 +90,23 @@ public class EtudiantService {
             try {
                 Etudiant saved = etudiantRepository.save(e);
                 return etudiantMapper.toDto(saved);
-            } catch (Exception ex) {
-                newId = generateNextNoEtudiant();
-                e.setNoEtudiant(newId);
+
+            } catch (DataIntegrityViolationException ex) {
+                // On retry UNIQUEMENT si collision
+                String msg = ex.getMostSpecificCause() != null
+                        ? ex.getMostSpecificCause().getMessage()
+                        : ex.getMessage();
+
+                if (msg != null && msg.contains("ORA-00001")) {
+                    newId = generateNextNoEtudiant();
+                    e.setNoEtudiant(newId);
+                } else {
+                    // ce n'est pas un problème d'ID => laisser GlobalExceptionHandler gérer
+                    throw ex;
+                }
             }
         }
+
 
         throw new BusinessException("Impossible de générer un NO_ETUDIANT unique (réessaye)");
     }

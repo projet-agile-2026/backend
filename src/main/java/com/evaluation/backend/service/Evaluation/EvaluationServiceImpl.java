@@ -1,10 +1,13 @@
 package com.evaluation.backend.service.Evaluation;
 
+import com.evaluation.backend.dto.Droit.DroitRequestDTO;
+import com.evaluation.backend.dto.Droit.DroitResponseDTO;
+import com.evaluation.backend.dto.Droit.DroitTousRequestDTO;
 import com.evaluation.backend.dto.Evaluation.*;
-import com.evaluation.backend.entity.Evaluation;
-import com.evaluation.backend.entity.QuestionEvaluation;
+import com.evaluation.backend.entity.*;
 import com.evaluation.backend.exception.BusinessException;
 import com.evaluation.backend.exception.ResourceNotFoundException;
+import com.evaluation.backend.mapper.DroitMapper;
 import com.evaluation.backend.mapper.EvaluationMapper;
 import com.evaluation.backend.repository.*;
 import com.evaluation.backend.service.QuestionService;
@@ -15,10 +18,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.evaluation.backend.dto.Question.QuestionWithQualificatifDTO;
 import com.evaluation.backend.dto.Rubrique.RubriqueDTO;
-import com.evaluation.backend.entity.RubriqueEvaluation;
 import com.evaluation.backend.exception.DuplicateResourceException;
 import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
+
+
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import com.evaluation.backend.repository.AuthentificationRepository;
+
+
+
+
 
 
 import java.util.List;
@@ -38,6 +49,12 @@ public class EvaluationServiceImpl implements EvaluationService {
     private final QuestionEvaluationRepository questionEvaluationRepository;
     private final RubriqueService rubriqueService;
     private final QuestionService questionService;
+
+
+    private final AuthentificationRepository authentificationRepository;
+    private final DroitRepository DroitRepository;
+    private final DroitMapper droitMapper;
+    private final EnseignantRepository EnseignantRepository;
 
 
     @Override
@@ -406,5 +423,185 @@ public class EvaluationServiceImpl implements EvaluationService {
 
         log.info("Reordered {} questions in rubrique evaluation {}", request.getQuestionOrders().size(), rubriqueEvaluationId);
     }
+
+
+
+
+    private Long currentNoEnseignant() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null) {
+            throw new BusinessException("Utilisateur non authentifié");
+        }
+
+        String email = authentication.getName(); // subject JWT = email
+        Authentification auth = authentificationRepository.findByEmail(email)
+                .orElseThrow(() -> new BusinessException("Utilisateur non trouvé : " + email));
+
+        if (auth.getEnseignant() == null || auth.getEnseignant().getId() == null) {
+            throw new BusinessException("Accès interdit : utilisateur non enseignant");
+        }
+
+        return auth.getEnseignant().getId().longValue();
+    }
+
+    private Evaluation getOwnedEvaluationOrThrow(Long idEvaluation) {
+        Evaluation eval = repository.findById(idEvaluation)
+                .orElseThrow(() -> new ResourceNotFoundException("Evaluation introuvable : id=" + idEvaluation));
+
+        Long owner = currentNoEnseignant();
+        if (eval.getNoEnseignant() == null || !eval.getNoEnseignant().equals(owner)) {
+            throw new BusinessException("Accès interdit : vous n'êtes pas propriétaire de cette évaluation.");
+        }
+        return eval;
+    }
+
+    // ---------------- US 6.10 : lister évaluations partagées ----------------
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<EvaluationResponseDTO> listEvaluationsPartagees() {
+
+        Long noEnseignant = currentNoEnseignant();
+        List<Droit> droits = DroitRepository.findByNoEnseignant(noEnseignant);
+
+        return droits.stream()
+                .filter(d ->
+                        "O".equalsIgnoreCase(d.getConsultation()) ||
+                                "O".equalsIgnoreCase(d.getDuplication())
+                )
+                .map(d -> repository.findById(d.getIdEvaluation()).orElse(null))
+                .filter(e -> e != null)
+                // optionnel : exclure ses propres évaluations si tu veux
+                .filter(e -> e.getNoEnseignant() == null || !e.getNoEnseignant().equals(noEnseignant))
+                .map(mapper::toResponse)
+                .toList();
+    }
+
+
+
+    @Override
+    public EvaluationResponseDTO dupliquerEvaluation(Long idEvaluation) {
+
+        Long noEnseignant = currentNoEnseignant();
+
+        Evaluation source = repository.findById(idEvaluation)
+                .orElseThrow(() -> new ResourceNotFoundException("Evaluation introuvable : id=" + idEvaluation));
+
+        boolean isOwner = source.getNoEnseignant() != null && source.getNoEnseignant().equals(noEnseignant);
+
+        boolean hasDupRight = DroitRepository.findByIdEvaluationAndNoEnseignant(idEvaluation, noEnseignant)
+                .map(d -> "O".equalsIgnoreCase(d.getDuplication()))
+                .orElse(false);
+
+        if (!isOwner && !hasDupRight) {
+            throw new BusinessException("Duplication interdite : vous n'avez pas le droit de duplication sur cette évaluation.");
+        }
+
+        Evaluation copy = new Evaluation();
+        copy.setIdEvaluation(null);
+        copy.setNoEnseignant(noEnseignant);
+
+        copy.setCodeFormation(source.getCodeFormation());
+        copy.setAnneeUniversitaire(source.getAnneeUniversitaire());
+        copy.setCodeUe(source.getCodeUe());
+        copy.setCodeEc(source.getCodeEc());
+        copy.setNoEvaluation(source.getNoEvaluation());
+        copy.setDesignation(source.getDesignation());
+        copy.setEtat(source.getEtat());
+        copy.setPeriode(source.getPeriode());
+        copy.setDebutReponse(source.getDebutReponse());
+        copy.setFinReponse(source.getFinReponse());
+
+        return mapper.toResponse(repository.save(copy));
+
+    }
+
+
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<DroitResponseDTO> listDroits(Long idEvaluation) {
+        getOwnedEvaluationOrThrow(idEvaluation);
+        return DroitRepository.findByIdEvaluation(idEvaluation)
+                .stream()
+                .map(droitMapper::toResponse)
+                .toList();
+    }
+
+    @Override
+    public DroitResponseDTO upsertDroit(Long idEvaluation, DroitRequestDTO dto) {
+
+        Evaluation eval = getOwnedEvaluationOrThrow(idEvaluation);
+        Long owner = eval.getNoEnseignant();
+
+        if (dto.getNoEnseignant().equals(owner)) {
+            throw new BusinessException("Impossible de vous attribuer un droit à vous-même.");
+        }
+
+        Droit droit = DroitRepository.findByIdEvaluationAndNoEnseignant(idEvaluation, dto.getNoEnseignant())
+                .orElseGet(() -> {
+                    Droit d = new Droit();
+                    d.setIdEvaluation(idEvaluation);
+                    d.setNoEnseignant(dto.getNoEnseignant());
+                    return d;
+                });
+
+        droitMapper.apply(droit, dto);
+
+        return droitMapper.toResponse(DroitRepository.save(droit));
+
+    }
+
+    @Override
+    public void deleteDroit(Long idEvaluation, Long noEnseignantCible) {
+        getOwnedEvaluationOrThrow(idEvaluation);
+
+        DroitId id = new DroitId(idEvaluation, noEnseignantCible);
+        if (!DroitRepository.existsById(id)) {
+            throw new ResourceNotFoundException(
+                    "Droit introuvable (idEvaluation=" + idEvaluation + ", noEnseignant=" + noEnseignantCible + ")"
+            );
+        }
+        DroitRepository.deleteById(id);
+    }
+
+    @Override
+    public DroitResponseDTO donnerDroitATous(Long idEvaluation, DroitTousRequestDTO dto) {
+
+        Evaluation eval = getOwnedEvaluationOrThrow(idEvaluation);
+        Long owner = eval.getNoEnseignant();
+
+        boolean dup = Boolean.TRUE.equals(dto.getDuplication());
+        boolean cons = dup || Boolean.TRUE.equals(dto.getConsultation()); // duplication => consultation
+
+        List<Integer> allIds = EnseignantRepository.findAllIds();
+
+        for (Integer idEns : allIds) {
+            Long cible = Long.valueOf(idEns);
+
+            if (cible.equals(owner)) continue; // pas à soi-même
+
+            Droit droit = DroitRepository.findByIdEvaluationAndNoEnseignant(idEvaluation, cible)
+                    .orElseGet(() -> {
+                        Droit d = new Droit();
+                        d.setIdEvaluation(idEvaluation);
+                        d.setNoEnseignant(cible);
+                        return d;
+                    });
+
+            droit.setConsultation(cons ? "O" : "N");
+            droit.setDuplication(dup ? "O" : "N");
+
+            DroitRepository.save(droit);
+        }
+
+        return DroitResponseDTO.builder()
+                .idEvaluation(idEvaluation)
+                .noEnseignant(-1L) // convention "tous"
+                .consultation(cons ? "O" : "N")
+                .duplication(dup ? "O" : "N")
+                .build();
+    }
+
 
 }
