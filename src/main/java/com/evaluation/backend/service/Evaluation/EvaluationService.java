@@ -59,4 +59,9 @@ public interface EvaluationService {
     DroitResponseDTO upsertDroit(Long idEvaluation, DroitRequestDTO dto);
     void deleteDroit(Long idEvaluation, Long noEnseignantCible);
     DroitResponseDTO donnerDroitATous(Long idEvaluation, DroitTousRequestDTO dto);
+
+
+
+    List<String> getAnneesUniversitaires(String codeFormation);
+
 }

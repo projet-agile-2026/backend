@@ -22,6 +22,9 @@ import com.evaluation.backend.exception.DuplicateResourceException;
 import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 
+import com.evaluation.backend.repository.PromotionRepository;
+
+
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -55,6 +58,9 @@ public class EvaluationServiceImpl implements EvaluationService {
     private final DroitRepository DroitRepository;
     private final DroitMapper droitMapper;
     private final EnseignantRepository EnseignantRepository;
+
+    private final PromotionRepository promotionRepository;
+
 
 
     @Override
@@ -258,7 +264,7 @@ public class EvaluationServiceImpl implements EvaluationService {
                 .build();
 
         RubriqueEvaluation saved = rubriqueEvaluationRepository.save(rubriqueEvaluation);
-        //added to handle handle last night bug
+        //added to handle last night bug
         List<QuestionWithQualificatifDTO> questionsRubrique = rubriqueDTO.getQuestions();
         if (questionsRubrique != null && !questionsRubrique.isEmpty()) {
             int ordreQuestion = 1;
@@ -617,6 +623,16 @@ public class EvaluationServiceImpl implements EvaluationService {
                 .duplication(dup ? "O" : "N")
                 .build();
     }
+
+
+
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<String> getAnneesUniversitaires(String codeFormation) {
+        return promotionRepository.findAnneesUniversitairesByCodeFormation(codeFormation);
+    }
+
 
 
 }

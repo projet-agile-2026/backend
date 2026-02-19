@@ -24,4 +24,16 @@ public interface PromotionRepository extends JpaRepository<Promotion, PromotionI
             @Param("diplome") String diplome,
             @Param("nomFormation") String nomFormation
     );
+
+
+
+
+
+    @Query("""
+        select distinct p.anneeUniversitaire
+        from Promotion p
+        where p.codeFormation = :codeFormation
+        order by p.anneeUniversitaire
+    """)
+    List<String> findAnneesUniversitairesByCodeFormation(String codeFormation);
 }

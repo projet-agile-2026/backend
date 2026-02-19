@@ -54,6 +54,13 @@ public class EvaluationController {
     }
 
 
+    @GetMapping("/formations/{codeFormation}/annees")
+    public List<String> getAnneesUniversitaires(@PathVariable String codeFormation) {
+        return service.getAnneesUniversitaires(codeFormation);
+    }
+
+
+
     @GetMapping("/{id}")
     public EvaluationResponseDTO getById(@PathVariable Long id) {
         return service.getById(id);
