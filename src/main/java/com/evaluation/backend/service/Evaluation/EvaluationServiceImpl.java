@@ -526,7 +526,16 @@ public class EvaluationServiceImpl implements EvaluationService {
         copy.setAnneeUniversitaire(source.getAnneeUniversitaire());
         copy.setCodeUe(source.getCodeUe());
         copy.setCodeEc(source.getCodeEc());
-        copy.setNoEvaluation(source.getNoEvaluation());
+        Short maxNoEval = repository.findMaxNoEvaluation(
+                source.getAnneeUniversitaire(),
+                noEnseignant,
+                source.getCodeFormation(),
+                source.getCodeUe()
+        );
+
+        short nextNoEval = (short) ((maxNoEval != null ? maxNoEval : 0) + 1);
+
+        copy.setNoEvaluation(nextNoEval);
         copy.setDesignation(source.getDesignation());
         copy.setEtat(source.getEtat());
         copy.setPeriode(source.getPeriode());
