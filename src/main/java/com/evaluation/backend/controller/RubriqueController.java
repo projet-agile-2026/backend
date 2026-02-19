@@ -31,7 +31,9 @@ public class RubriqueController {
      * Get all rubriques
      */
     @GetMapping
-    public ResponseEntity<List<RubriqueDTO>> getAllRubriques(Authentication authentication) {
+    public ResponseEntity<List<RubriqueDTO>> getAllRubriques(
+            Authentication authentication,
+            @RequestParam(required = false) Long evaluationId) {
 
         String role = extractRole(authentication);
         String noEnseignant = "ROLE_ENS".equals(role) ? getConnectedEnseignantId(authentication) : null;
@@ -39,12 +41,10 @@ public class RubriqueController {
 
         Long noEnseignantLong = (noEnseignant != null) ? Long.valueOf(noEnseignant) : null;
 
-        List<RubriqueDTO> rubriques = rubriqueService.getAllRubriques(simpleRole, noEnseignantLong);
-       
-        
+        List<RubriqueDTO> rubriques = rubriqueService.getAllRubriques(simpleRole, noEnseignantLong, evaluationId);
+
         return ResponseEntity.ok(rubriques);
     }
-
     /**
      * Get rubrique by ID with questions and qualificatifs
      */

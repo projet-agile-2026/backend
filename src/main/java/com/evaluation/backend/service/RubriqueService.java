@@ -35,8 +35,8 @@ public class RubriqueService {
     private final RubriqueMapper rubriqueMapper;
     private final QuestionService questionService;
     @Transactional(readOnly = true)
-    
-    public List<RubriqueDTO> getAllRubriques(String role, Long noEnseignant) {
+
+    public List<RubriqueDTO> getAllRubriques(String role, Long noEnseignant, Long evaluationId)  {
         log.debug("Fetching all rubriques for role: {}", role);
         
         List<Rubrique> rubriques;
@@ -76,6 +76,18 @@ public class RubriqueService {
             List<QuestionWithQualificatifDTO> questions =
                     getQuestionsWithQualificatifsForRubrique(rubriqueDTO.getIdRubrique());
             rubriqueDTO.setQuestions(questions);
+        }
+
+        if (evaluationId != null) {
+            List<Long> dejaDansEvaluation = rubriqueEvaluationRepository
+                    .findByIdEvaluationOrderByOrdreAsc(evaluationId)
+                    .stream()
+                    .map(re -> re.getIdRubrique())
+                    .filter(id -> id != null)
+                    .collect(Collectors.toList());
+            rubriqueDTOs = rubriqueDTOs.stream()
+                    .filter(r -> !dejaDansEvaluation.contains(r.getIdRubrique()))
+                    .collect(Collectors.toList());
         }
 
         return rubriqueDTOs;
