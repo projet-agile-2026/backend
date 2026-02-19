@@ -17,10 +17,8 @@ public class EvaluationRequestDTO {
     @NotBlank
     private String anneeUniversitaire;
 
-    @NotBlank
     private String codeUe;
 
-    @NotBlank
     private String codeEc;
 
     @NotNull

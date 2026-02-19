@@ -160,12 +160,12 @@ public class EvaluationServiceImpl implements EvaluationService {
                     .idEvaluation(re.getIdEvaluation())
                     .idRubrique(re.getIdRubrique())
                     .ordre(re.getOrdre())
-                    .designation(re.getDesignation())
                     .build();
 
             // Si c'est une rubrique standard ou personnelle (pas composée)
             if (re.getIdRubrique() != null) {
                 RubriqueDTO rubrique = rubriqueService.getRubriqueById(re.getIdRubrique());
+                dto.setDesignation(rubrique.getDesignation());
                 dto.setType(rubrique.getType());
 
                 // Récupérer les questions de QUESTION_EVALUATION
