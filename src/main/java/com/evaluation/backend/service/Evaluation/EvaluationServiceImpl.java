@@ -258,6 +258,21 @@ public class EvaluationServiceImpl implements EvaluationService {
                 .build();
 
         RubriqueEvaluation saved = rubriqueEvaluationRepository.save(rubriqueEvaluation);
+        //added to handle handle last night bug
+        List<QuestionWithQualificatifDTO> questionsRubrique = rubriqueDTO.getQuestions();
+        if (questionsRubrique != null && !questionsRubrique.isEmpty()) {
+            int ordreQuestion = 1;
+            for (QuestionWithQualificatifDTO q : questionsRubrique) {
+                QuestionEvaluation qe = QuestionEvaluation.builder()
+                        .idRubriqueEvaluation(saved.getIdRubriqueEvaluation())
+                        .idQuestion(q.getIdQuestion())
+                        .ordre(ordreQuestion++)
+                        .build();
+                questionEvaluationRepository.save(qe);
+            }
+            log.info("Copied {} questions from rubrique {} to question_evaluation",
+                    questionsRubrique.size(), request.getIdRubrique());
+        }
         log.info("Added rubrique {} to evaluation {} with ordre {}", request.getIdRubrique(), evaluationId, ordre);
 
         // Retourner le DTO
