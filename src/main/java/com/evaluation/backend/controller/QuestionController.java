@@ -43,6 +43,9 @@ public class QuestionController {
 
     @PostMapping("/create")
     public ResponseEntity<?> createQuestion(@RequestBody Question question, Authentication authentication) {
+        if (question.getIntitule() == null || question.getIntitule().trim().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("L'intitulé de la question est obligatoire.");
+        }
         try {
             String role = extractRole(authentication);
             String noEnseignant = "ROLE_ENS".equals(role) ? getConnectedEnseignantId(authentication) : null;
@@ -56,6 +59,9 @@ public class QuestionController {
 
     @PutMapping("/update/{id}")
     public ResponseEntity<?> update(@PathVariable Long id, @RequestBody Question questionDetails, Authentication authentication) {
+        if (questionDetails.getIntitule() == null || questionDetails.getIntitule().trim().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("L'intitulé de la question est obligatoire.");
+        }
         try {
             String role = extractRole(authentication);
             String noEnseignant = "ROLE_ENS".equals(role) ? getConnectedEnseignantId(authentication) : null;
