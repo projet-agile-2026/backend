@@ -105,8 +105,8 @@ public class GlobalExceptionHandler {
         ErrorResponse errorResponse = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
                 .status(HttpStatus.BAD_REQUEST.value())
-                .error("Validation Failed")
-                .message("Invalid input data")
+                .error("Validation invalides")
+                .message("Données invalides. Veuillez corriger les erreurs de validation.")
                 .path(request.getRequestURI())
                 .validationErrors(validationErrors)
                 .build();
