@@ -105,8 +105,8 @@ public class GlobalExceptionHandler {
         ErrorResponse errorResponse = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
                 .status(HttpStatus.BAD_REQUEST.value())
-                .error("Validation Failed")
-                .message("Invalid input data")
+                .error("Validation invalides")
+                .message("Données invalides. Veuillez corriger les erreurs de validation.")
                 .path(request.getRequestURI())
                 .validationErrors(validationErrors)
                 .build();
@@ -130,29 +130,30 @@ public class GlobalExceptionHandler {
         // --- QualificatifService ---
         if (msg.contains("Ce couple existe déjà")) {
             return buildError(HttpStatus.CONFLICT,
-                    "Ce qualificatif (mot1/mot2) existe déjà. Veuillez saisir un couple différent.",
-                    request);
-        }
-        if (msg.contains("Modification impossible") && msg.contains("count")) {
-            return buildError(HttpStatus.CONFLICT,
-                    "Modification impossible : ce qualificatif est déjà utilisé dans une ou plusieurs questions.",
+                    "Ce couple de qualificatifs existe déjà. Veuillez saisir un couple différent.",
                     request);
         }
         if (msg.contains("Un couple identique existe déjà")) {
             return buildError(HttpStatus.CONFLICT,
-                    "Un qualificatif identique existe déjà. Veuillez choisir un autre couple de mots.",
+                    "Un couple de qualificatifs identique existe déjà. Veuillez choisir un autre couple.",
+                    request);
+        }
+        if (msg.contains("Modification impossible") && msg.contains("count")) {
+            return buildError(HttpStatus.CONFLICT,
+                    "Modification impossible : ce couple est utilisé dans une ou plusieurs questions. Retirez-le d'abord.",
                     request);
         }
         if (msg.contains("Suppression impossible") && msg.contains("count")) {
             return buildError(HttpStatus.CONFLICT,
-                    "Suppression impossible : ce qualificatif est utilisé dans une ou plusieurs questions. Retirez-le d'abord.",
+                    "Suppression impossible : ce couple est utilisé dans une ou plusieurs questions. Retirez-le d'abord.",
                     request);
         }
         if (msg.contains("Couple introuvable")) {
             return buildError(HttpStatus.NOT_FOUND,
-                    "Qualificatif introuvable. Vérifiez l'identifiant saisi.",
+                    "Ce couple de qualificatifs est introuvable. Il a peut-être déjà été supprimé.",
                     request);
         }
+
 
         // --- QuestionService ---
         if (msg.contains("Action interdite") || msg.contains("propriétaire différent")) {
@@ -213,6 +214,7 @@ public class GlobalExceptionHandler {
     // Erreurs base de données Oracle (Promotion / Etudiant) : ADM KOLO
     // =========================================================
 
+
     @ExceptionHandler({
             DataIntegrityViolationException.class,
             JpaSystemException.class,
@@ -228,6 +230,11 @@ public class GlobalExceptionHandler {
 
         // ORA-12899 : valeur trop grande pour colonne
         if ("ORA-12899".equals(oracleCode)) {
+            if (request.getRequestURI().contains("/qualificatifs")) {
+                return buildError(HttpStatus.BAD_REQUEST,
+                        "Texte trop long. Les mots d'un couple de qualificatifs ne doivent pas dépasser 16 caractères.",
+                        request);
+            }
             return buildError(HttpStatus.BAD_REQUEST,
                     "Texte trop long. Veuillez raccourcir la valeur saisie.",
                     request);
@@ -556,16 +563,20 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleGlobalException(
             Exception ex, HttpServletRequest request) {
 
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
-                .error(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase())
-                .message("An unexpected error occurred: " + ex.getMessage())
-                .path(request.getRequestURI())
-                .build();
+        // Distinguish DB connection errors
+        if (ex.getMessage() != null && (
+                ex.getMessage().contains("Unable to acquire JDBC Connection") ||
+                        ex.getMessage().contains("Connection refused"))) {
+            return buildError(HttpStatus.SERVICE_UNAVAILABLE,
+                    "La base de données est inaccessible. Veuillez réessayer plus tard.",
+                    request);
+        }
 
-        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
+        return buildError(HttpStatus.INTERNAL_SERVER_ERROR,
+                "Une erreur inattendue s'est produite. Veuillez contacter l'administrateur.",
+                request);
     }
+
 
     // =========================================================
     // Helpers privés
