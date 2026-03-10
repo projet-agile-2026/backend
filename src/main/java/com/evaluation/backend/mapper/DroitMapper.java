@@ -23,6 +23,9 @@ public class DroitMapper {
                 .noEnseignant(d.getNoEnseignant())
                 .consultation(d.getConsultation())
                 .duplication(d.getDuplication())
+                .nom(d.getEnseignant() != null ? d.getEnseignant().getNom() : null)
+                .prenom(d.getEnseignant() != null ? d.getEnseignant().getPrenom() : null)
+                .emailUbo(d.getEnseignant() != null ? d.getEnseignant().getEmailUbo() : null)
                 .build();
     }
 }

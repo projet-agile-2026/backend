@@ -13,4 +13,8 @@ public class DroitResponseDTO {
     // valeurs BD : "O" / "N"
     private String consultation;
     private String duplication;
+
+    private String nom;
+    private String prenom;
+    private String emailUbo;
 }
