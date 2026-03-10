@@ -64,4 +64,8 @@ public interface EvaluationService {
 
     List<String> getAnneesUniversitaires(String codeFormation);
 
+
+    //Changer l'etat d'evaluation - Achraf EL AIDI IDRISSI
+    EvaluationResponseDTO updateEtat(Long evaluationId, String etat);
+
 }

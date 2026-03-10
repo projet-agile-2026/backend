@@ -17,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
@@ -216,4 +217,13 @@ public class EvaluationController {
     }
 
 
+    //Changer l'etat d'evaluation - Achraf EL AIDI IDRISSI
+    @PutMapping("/{id}/etat")
+    public EvaluationResponseDTO updateEtat(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> payload) {
+
+        String etat = payload.get("etat");
+        return service.updateEtat(id, etat);
+    }
 }
