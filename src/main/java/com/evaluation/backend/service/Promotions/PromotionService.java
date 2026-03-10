@@ -37,55 +37,51 @@ public class PromotionService {
         this.guardService = guardService;
     }
 
-    public List<PromotionResponseDTO> list(String anneeUniversitaire, String diplome, String nomFormation) {
-        return promotionRepository.search(anneeUniversitaire, diplome, nomFormation)
-                .stream()
-                .map(p -> {
-                    Formation f = formationRepository.findById(p.getCodeFormation()).orElse(null);
-                    return promotionMapper.toDto(p, f);
-                })
-                .toList();
+public List<PromotionResponseDTO> list(String anneeUniversitaire, String diplome, String nomFormation) {
+    return promotionRepository.search(anneeUniversitaire, diplome, nomFormation)
+            .stream()
+            .map(p -> {
+                Formation f = formationRepository.findById(p.getCodeFormation()).orElse(null);
+                int count = etudiantRepository.countByCodeFormationAndAnneeUniversitaire(
+                    p.getCodeFormation(), p.getAnneeUniversitaire());
+                return promotionMapper.toDto(p, f, count);
+            })
+            .toList();
+}
+
+public PromotionResponseDTO getOne(String codeFormation, String anneeUniversitaire) {
+    Promotion p = promotionRepository.findById(new PromotionId(codeFormation, anneeUniversitaire))
+            .orElseThrow(() -> new ResourceNotFoundException("Promotion introuvable"));
+    Formation f = formationRepository.findById(codeFormation).orElse(null);
+    int count = etudiantRepository.countByCodeFormationAndAnneeUniversitaire(codeFormation, anneeUniversitaire);
+    return promotionMapper.toDto(p, f, count);
+}
+
+public PromotionResponseDTO create(PromotionCreateUpdateDTO dto) {
+    formationRepository.findById(dto.getCodeFormation())
+            .orElseThrow(() -> new ResourceNotFoundException("Formation inexistante"));
+    PromotionId id = new PromotionId(dto.getCodeFormation(), dto.getAnneeUniversitaire());
+    if (promotionRepository.existsById(id)) {
+        throw new DuplicateResourceException("La promotion existe déjà");
     }
+    Promotion saved = promotionRepository.save(promotionMapper.toEntity(dto));
+    Formation f = formationRepository.findById(saved.getCodeFormation()).orElse(null);
+    return promotionMapper.toDto(saved, f, 0);
+}
 
-    public PromotionResponseDTO getOne(String codeFormation, String anneeUniversitaire) {
-        Promotion p = promotionRepository.findById(new PromotionId(codeFormation, anneeUniversitaire))
-                .orElseThrow(() -> new ResourceNotFoundException("Promotion introuvable"));
-
-        Formation f = formationRepository.findById(codeFormation).orElse(null);
-        return promotionMapper.toDto(p, f);
+public PromotionResponseDTO update(String codeFormation, String anneeUniversitaire, PromotionCreateUpdateDTO dto) {
+    PromotionId id = new PromotionId(codeFormation, anneeUniversitaire);
+    Promotion p = promotionRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Promotion introuvable"));
+    if (!codeFormation.equals(dto.getCodeFormation()) || !anneeUniversitaire.equals(dto.getAnneeUniversitaire())) {
+        throw new BusinessException("Impossible de modifier la clé de la promotion");
     }
-
-    public PromotionResponseDTO create(PromotionCreateUpdateDTO dto) {
-
-        formationRepository.findById(dto.getCodeFormation())
-                .orElseThrow(() -> new ResourceNotFoundException("Formation inexistante"));
-
-        PromotionId id = new PromotionId(dto.getCodeFormation(), dto.getAnneeUniversitaire());
-        if (promotionRepository.existsById(id)) {
-            throw new DuplicateResourceException("La promotion existe déjà");
-        }
-
-        Promotion saved = promotionRepository.save(promotionMapper.toEntity(dto));
-        Formation f = formationRepository.findById(saved.getCodeFormation()).orElse(null);
-        return promotionMapper.toDto(saved, f);
-    }
-
-    public PromotionResponseDTO update(String codeFormation, String anneeUniversitaire, PromotionCreateUpdateDTO dto) {
-        PromotionId id = new PromotionId(codeFormation, anneeUniversitaire);
-        Promotion p = promotionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Promotion introuvable"));
-
-
-        if (!codeFormation.equals(dto.getCodeFormation()) || !anneeUniversitaire.equals(dto.getAnneeUniversitaire())) {
-            throw new BusinessException("Impossible de modifier la clé de la promotion");
-        }
-
-        promotionMapper.copyToEntity(dto, p);
-        Promotion saved = promotionRepository.save(p);
-
-        Formation f = formationRepository.findById(saved.getCodeFormation()).orElse(null);
-        return promotionMapper.toDto(saved, f);
-    }
+    promotionMapper.copyToEntity(dto, p);
+    Promotion saved = promotionRepository.save(p);
+    Formation f = formationRepository.findById(saved.getCodeFormation()).orElse(null);
+    int count = etudiantRepository.countByCodeFormationAndAnneeUniversitaire(codeFormation, anneeUniversitaire);
+    return promotionMapper.toDto(saved, f, count);
+}
 
     public void delete(String codeFormation, String anneeUniversitaire) {
         PromotionId id = new PromotionId(codeFormation, anneeUniversitaire);

@@ -25,7 +25,7 @@ public class Qualificatif implements Serializable {
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "qualificatif_seq")
     @SequenceGenerator(
             name = "qualificatif_seq",
-            sequenceName = "QUALIFICATIF_SEQ",
+            sequenceName = "QUA_SEQ",
             allocationSize = 1
     )
     @Column(name = "ID_QUALIFICATIF", nullable = false)
