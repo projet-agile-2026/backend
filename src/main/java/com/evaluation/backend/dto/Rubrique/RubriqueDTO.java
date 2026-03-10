@@ -19,14 +19,14 @@ public class RubriqueDTO implements Serializable {
 
     private Long idRubrique;
 
-    @NotBlank(message = "Type is required")
-    @Size(max = 10, message = "Type must not exceed 10 characters")
+    @NotBlank(message = "Le type est requis")
+    @Size(max = 10, message = "Le type doit comporter au maximum 10 caractères")
     private String type;
 
     private Long noEnseignant;
 
-    @NotBlank(message = "Designation is required")
-    @Size(max = 32, message = "Designation must not exceed 32 characters")
+    @NotBlank(message = "Designation est requise")
+    @Size(max = 32, message = "La designation doit comporter au maximum 32 caractères")
     private String designation;
 
     private Integer ordre;

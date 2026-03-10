@@ -173,6 +173,14 @@ public class RubriqueService {
         Rubrique existingRubrique = rubriqueRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Rubrique", "idRubrique", id));
 
+        // Vérifier si la rubrique est liée à une évaluation
+        boolean isUsedInEvaluation = rubriqueEvaluationRepository.existsByIdRubrique(id);
+        
+        if (isUsedInEvaluation) {
+            throw new BusinessException("Impossible de modifier la rubrique '" + existingRubrique.getDesignation() + 
+                "' car elle est utilisée dans une ou plusieurs évaluations");
+        }
+
         // Vérification des droits (Sécurité)
         if ("ENS".equals(role)) {
             // Un enseignant ne peut modifier QUE ses propres RBP

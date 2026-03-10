@@ -12,9 +12,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class AddQuestionToRubriqueRequest {
 
-    @NotNull(message = "Question ID is required")
+    @NotNull(message = "Question Id est requis")
     private Long idQuestion;
 
-    @NotNull(message = "Ordre is required")
+    @NotNull(message = "Ordre est requis")
     private Integer ordre;
 }

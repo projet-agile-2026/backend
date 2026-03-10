@@ -96,8 +96,11 @@ public class RubriqueController {
         String role = extractRole(authentication);
         String simpleRole = role.replace("ROLE_", "");
         
-        String idStr = getConnectedEnseignantId(authentication);
-        Long noEnseignant = (idStr != null) ? Long.valueOf(idStr) : null;
+        Long noEnseignant = null;
+        if ("ENS".equals(simpleRole)) {
+            String idStr = getConnectedEnseignantId(authentication);
+            noEnseignant = (idStr != null) ? Long.valueOf(idStr) : null;
+        }
 
         log.info("PUT /api/rubriques/{} - Updating rubrique by role: {}", id, simpleRole);
         
