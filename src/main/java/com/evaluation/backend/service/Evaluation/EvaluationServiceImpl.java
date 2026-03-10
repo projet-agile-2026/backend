@@ -36,6 +36,7 @@ import com.evaluation.backend.repository.AuthentificationRepository;
 
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -340,6 +341,7 @@ public class EvaluationServiceImpl implements EvaluationService {
 
         log.info("Reordered {} rubriques in evaluation {}", request.getRubriqueOrders().size(), evaluationId);
     }
+
     @Override
     public RubriqueEvaluationDTO addQuestionToRubriqueEvaluation(Long evaluationId, Long rubriqueEvaluationId,
                                                                  AddQuestionToRubriqueEvaluationRequest request, Long noEnseignant) {
@@ -396,7 +398,6 @@ public class EvaluationServiceImpl implements EvaluationService {
                 .findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException("RubriqueEvaluation", "id", rubriqueEvaluationId));
     }
-
 
     @Override
     public void removeQuestionFromRubriqueEvaluation(Long evaluationId, Long rubriqueEvaluationId,
@@ -498,8 +499,6 @@ public class EvaluationServiceImpl implements EvaluationService {
                 .toList();
     }
 
-
-
     @Override
     public EvaluationResponseDTO dupliquerEvaluation(Long idEvaluation) {
 
@@ -526,7 +525,16 @@ public class EvaluationServiceImpl implements EvaluationService {
         copy.setAnneeUniversitaire(source.getAnneeUniversitaire());
         copy.setCodeUe(source.getCodeUe());
         copy.setCodeEc(source.getCodeEc());
-        copy.setNoEvaluation(source.getNoEvaluation());
+        Short maxNoEval = repository.findMaxNoEvaluation(
+                source.getAnneeUniversitaire(),
+                noEnseignant,
+                source.getCodeFormation(),
+                source.getCodeUe()
+        );
+
+        short nextNoEval = (short) ((maxNoEval != null ? maxNoEval : 0) + 1);
+
+        copy.setNoEvaluation(nextNoEval);
         copy.setDesignation(source.getDesignation());
         copy.setEtat(source.getEtat());
         copy.setPeriode(source.getPeriode());
@@ -625,8 +633,6 @@ public class EvaluationServiceImpl implements EvaluationService {
     }
 
 
-
-
     @Override
     @Transactional(readOnly = true)
     public List<String> getAnneesUniversitaires(String codeFormation) {
@@ -634,5 +640,29 @@ public class EvaluationServiceImpl implements EvaluationService {
     }
 
 
+    //Changer l'etat d'evaluation - Achraf EL AIDI IDRISSI
+    @Override
+    public EvaluationResponseDTO updateEtat(Long evaluationId, String etat) {
+        Evaluation eval = repository.findById(evaluationId).orElseThrow(() -> new ResourceNotFoundException("Evaluation introuvable : id=" + evaluationId));
+
+
+        System.out.println("Etat actuel = " + eval.getEtat());
+        System.out.println("Etat demandé = " + etat);
+
+        if(eval.getEtat().equals("ELA") && etat.equals("DIS")) {
+            eval.setEtat("DIS");
+        }
+        else if(eval.getEtat().equals("DIS") && etat.equals("CLO")) {
+            eval.setEtat("CLO");
+        }
+        else {
+            throw new RuntimeException("Transition d'état non autorisée");
+        }
+
+        repository.save(eval);
+
+        return mapper.toResponse(eval);
+
+    }
 
 }
