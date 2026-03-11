@@ -37,23 +37,24 @@ public class PromotionMapper {
         p.setCommentaire(dto.getCommentaire());
     }
 
-    public PromotionResponseDTO toDto(Promotion p, Formation fOrNull) {
-        return PromotionResponseDTO.builder()
-                .codeFormation(p.getCodeFormation())
-                .anneeUniversitaire(p.getAnneeUniversitaire())
-                .noEnseignant(p.getNoEnseignant())
-                .siglePromotion(p.getSiglePromotion())
-                .nbMaxEtudiant(p.getNbMaxEtudiant())
-                .dateReponseLp(p.getDateReponseLp())
-                .dateReponseLalp(p.getDateReponseLalp())
-                .dateRentree(p.getDateRentree())
-                .lieuRentree(p.getLieuRentree())
-                .processusStage(p.getProcessusStage())
-                .commentaire(p.getCommentaire())
-                .enseignantNom(p.getEnseignant() != null ? p.getEnseignant().getNom() : null)
-                .enseignantPrenom(p.getEnseignant() != null ? p.getEnseignant().getPrenom() : null)
-                .nomFormation(fOrNull != null ? fOrNull.getNomFormation() : null)
-                .diplome(fOrNull != null ? fOrNull.getDiplome() : null)
-                .build();
-    }
+public PromotionResponseDTO toDto(Promotion p, Formation fOrNull, int nbEtudiantActuel) {
+    return PromotionResponseDTO.builder()
+            .codeFormation(p.getCodeFormation())
+            .anneeUniversitaire(p.getAnneeUniversitaire())
+            .noEnseignant(p.getNoEnseignant())
+            .siglePromotion(p.getSiglePromotion())
+            .nbMaxEtudiant(p.getNbMaxEtudiant())
+            .nbEtudiantActuel(nbEtudiantActuel)
+            .dateReponseLp(p.getDateReponseLp())
+            .dateReponseLalp(p.getDateReponseLalp())
+            .dateRentree(p.getDateRentree())
+            .lieuRentree(p.getLieuRentree())
+            .processusStage(p.getProcessusStage())
+            .commentaire(p.getCommentaire())
+            .enseignantNom(p.getEnseignant() != null ? p.getEnseignant().getNom() : null)
+            .enseignantPrenom(p.getEnseignant() != null ? p.getEnseignant().getPrenom() : null)
+            .nomFormation(fOrNull != null ? fOrNull.getNomFormation() : null)
+            .diplome(fOrNull != null ? fOrNull.getDiplome() : null)
+            .build();
+}
 }

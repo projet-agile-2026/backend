@@ -12,6 +12,8 @@ public class EvaluationResponseDTO {
     private Long idEvaluation;
 
     private Long noEnseignant;
+    private String nomEnseignant;
+    private String prenomEnseignant;
     private String codeFormation;
     private String anneeUniversitaire;
     private String codeUe;
@@ -25,4 +27,6 @@ public class EvaluationResponseDTO {
 
     private LocalDate debutReponse;
     private LocalDate finReponse;
+    
+    private Boolean dejaRepondu;
 }
