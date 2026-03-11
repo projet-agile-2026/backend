@@ -30,10 +30,11 @@ public class EvaluationController {
 
     @GetMapping
     public List<EvaluationResponseDTO> list(
-            @RequestParam(required = false) Long noEnseignant,
             @RequestParam(required = false) String codeFormation,
-            @RequestParam(required = false) String anneeUniversitaire
+            @RequestParam(required = false) String anneeUniversitaire,
+            Authentication authentication
     ) {
+        Long noEnseignant = getConnectedEnseignantId(authentication);
         return service.list(noEnseignant, codeFormation, anneeUniversitaire);
     }
 

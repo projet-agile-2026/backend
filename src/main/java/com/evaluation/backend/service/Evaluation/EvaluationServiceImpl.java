@@ -517,10 +517,10 @@ public class EvaluationServiceImpl implements EvaluationService {
             throw new BusinessException("Duplication interdite : vous n'avez pas le droit de duplication sur cette évaluation.");
         }
 
+        // Par :
         Evaluation copy = new Evaluation();
         copy.setIdEvaluation(null);
         copy.setNoEnseignant(noEnseignant);
-
         copy.setCodeFormation(source.getCodeFormation());
         copy.setAnneeUniversitaire(source.getAnneeUniversitaire());
         copy.setCodeUe(source.getCodeUe());
@@ -531,17 +531,44 @@ public class EvaluationServiceImpl implements EvaluationService {
                 source.getCodeFormation(),
                 source.getCodeUe()
         );
-
         short nextNoEval = (short) ((maxNoEval != null ? maxNoEval : 0) + 1);
-
         copy.setNoEvaluation(nextNoEval);
         copy.setDesignation(source.getDesignation());
-        copy.setEtat(source.getEtat());
+        copy.setEtat("ELA");
         copy.setPeriode(source.getPeriode());
         copy.setDebutReponse(source.getDebutReponse());
         copy.setFinReponse(source.getFinReponse());
 
-        return mapper.toResponse(repository.save(copy));
+        Evaluation savedCopy = repository.save(copy);
+
+// Copier les rubriques et leurs questions
+        List<RubriqueEvaluation> rubriquesSource = rubriqueEvaluationRepository
+                .findByIdEvaluationOrderByOrdreAsc(idEvaluation);
+
+        for (RubriqueEvaluation re : rubriquesSource) {
+            RubriqueEvaluation newRe = RubriqueEvaluation.builder()
+                    .idEvaluation(savedCopy.getIdEvaluation())
+                    .idRubrique(re.getIdRubrique())
+                    .ordre(re.getOrdre())
+                    .designation(re.getDesignation())
+                    .build();
+
+            RubriqueEvaluation savedRe = rubriqueEvaluationRepository.save(newRe);
+
+            List<QuestionEvaluation> questionsSource = questionEvaluationRepository
+                    .findByIdRubriqueEvaluationOrderByOrdreAsc(re.getIdRubriqueEvaluation());
+
+            for (QuestionEvaluation qe : questionsSource) {
+                QuestionEvaluation newQe = QuestionEvaluation.builder()
+                        .idRubriqueEvaluation(savedRe.getIdRubriqueEvaluation())
+                        .idQuestion(qe.getIdQuestion())
+                        .ordre(qe.getOrdre())
+                        .build();
+                questionEvaluationRepository.save(newQe);
+            }
+        }
+
+        return mapper.toResponse(savedCopy);
 
     }
 
