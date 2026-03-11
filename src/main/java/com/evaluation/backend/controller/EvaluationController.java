@@ -15,6 +15,7 @@ import com.evaluation.backend.entity.Authentification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import com.evaluation.backend.exception.BusinessException;
 
 import java.util.List;
 import java.util.Map;
@@ -226,4 +227,19 @@ public class EvaluationController {
         String etat = payload.get("etat");
         return service.updateEtat(id, etat);
     }
+    //ranya
+    @PutMapping("/{evaluationId}/rubriques/{rubriqueEvaluationId}/designation")
+    public ResponseEntity<RubriqueEvaluationDTO> updateDesignationRubrique(
+            @PathVariable Long evaluationId,
+            @PathVariable Long rubriqueEvaluationId,
+            @RequestBody Map<String, String> payload,
+            Authentication authentication) {
+
+        Long noEnseignant = getConnectedEnseignantId(authentication);
+        String designation = payload.get("designation");
+        RubriqueEvaluationDTO result = service.updateDesignationRubriqueEvaluation(
+                evaluationId, rubriqueEvaluationId, designation, noEnseignant);
+        return ResponseEntity.ok(result);
+    }
+
 }

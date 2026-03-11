@@ -38,7 +38,7 @@ public interface EvaluationService {
     // US 6.6: Définir les questions d'une rubrique d'évaluation
 
     RubriqueEvaluationDTO addQuestionToRubriqueEvaluation(Long evaluationId, Long rubriqueEvaluationId,
-                                         AddQuestionToRubriqueEvaluationRequest request, Long noEnseignant);
+                                                          AddQuestionToRubriqueEvaluationRequest request, Long noEnseignant);
 
     void removeQuestionFromRubriqueEvaluation(Long evaluationId, Long rubriqueEvaluationId,
                                               Long questionEvaluationId, Long noEnseignant);
@@ -56,10 +56,12 @@ public interface EvaluationService {
 
     // US 6.9
     List<DroitResponseDTO> listDroits(Long idEvaluation);
-    DroitResponseDTO upsertDroit(Long idEvaluation, DroitRequestDTO dto);
-    void deleteDroit(Long idEvaluation, Long noEnseignantCible);
-    DroitResponseDTO donnerDroitATous(Long idEvaluation, DroitTousRequestDTO dto);
 
+    DroitResponseDTO upsertDroit(Long idEvaluation, DroitRequestDTO dto);
+
+    void deleteDroit(Long idEvaluation, Long noEnseignantCible);
+
+    DroitResponseDTO donnerDroitATous(Long idEvaluation, DroitTousRequestDTO dto);
 
 
     List<String> getAnneesUniversitaires(String codeFormation);
@@ -67,5 +69,11 @@ public interface EvaluationService {
 
     //Changer l'etat d'evaluation - Achraf EL AIDI IDRISSI
     EvaluationResponseDTO updateEtat(Long evaluationId, String etat);
+    //ranya
 
+    RubriqueEvaluationDTO updateDesignationRubriqueEvaluation(
+            Long evaluationId,
+            Long rubriqueEvaluationId,
+            String designation,
+            Long noEnseignant);
 }

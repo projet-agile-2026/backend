@@ -24,16 +24,9 @@ import java.util.ArrayList;
 
 import com.evaluation.backend.repository.PromotionRepository;
 
-
-
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import com.evaluation.backend.repository.AuthentificationRepository;
-
-
-
-
-
 
 import java.util.List;
 import java.util.Optional;
@@ -54,15 +47,12 @@ public class EvaluationServiceImpl implements EvaluationService {
     private final RubriqueService rubriqueService;
     private final QuestionService questionService;
 
-
     private final AuthentificationRepository authentificationRepository;
     private final DroitRepository DroitRepository;
     private final DroitMapper droitMapper;
     private final EnseignantRepository EnseignantRepository;
 
     private final PromotionRepository promotionRepository;
-
-
 
     @Override
     @Transactional(readOnly = true)
@@ -94,9 +84,7 @@ public class EvaluationServiceImpl implements EvaluationService {
         validateEtat(dto.getEtat());
 
         Evaluation e = mapper.toEntity(dto);
-
         e.setNoEnseignant(noEnseignant);
-
         Evaluation saved = repository.save(e);
 
         return mapper.toResponse(saved);
@@ -133,7 +121,6 @@ public class EvaluationServiceImpl implements EvaluationService {
         }
     }
 
-
     @Override
     public List<String> getFormations() {
         return formationRepository.findAllCodeFormations();
@@ -149,7 +136,6 @@ public class EvaluationServiceImpl implements EvaluationService {
         return elementConstitutifRepository.findDistinctEcsByFormationAndUe(codeFormation, codeUe);
     }
 
-
     @Override
     @Transactional(readOnly = true)
     public EvaluationWithRubriquesDTO getByIdWithRubriques(Long id) {
@@ -162,17 +148,23 @@ public class EvaluationServiceImpl implements EvaluationService {
         List<RubriqueEvaluationDTO> rubriqueDTOs = new ArrayList<>();
 
         for (RubriqueEvaluation re : rubriquesEvaluation) {
+
+            // ← MODIFIÉ : on passe designation(re.getDesignation()) dans le builder
             RubriqueEvaluationDTO dto = RubriqueEvaluationDTO.builder()
                     .idRubriqueEvaluation(re.getIdRubriqueEvaluation())
                     .idEvaluation(re.getIdEvaluation())
                     .idRubrique(re.getIdRubrique())
                     .ordre(re.getOrdre())
+                    .designation(re.getDesignation())
                     .build();
 
             // Si c'est une rubrique standard ou personnelle (pas composée)
             if (re.getIdRubrique() != null) {
                 RubriqueDTO rubrique = rubriqueService.getRubriqueById(re.getIdRubrique());
-                dto.setDesignation(rubrique.getDesignation());
+
+                // ← MODIFIÉ : on utilise la designation de RubriqueEvaluation si elle existe,
+                //             sinon on tombe back sur celle de la rubrique source
+                dto.setDesignation(re.getDesignation() != null ? re.getDesignation() : rubrique.getDesignation());
                 dto.setType(rubrique.getType());
 
                 // Récupérer les questions de QUESTION_EVALUATION
@@ -180,7 +172,6 @@ public class EvaluationServiceImpl implements EvaluationService {
                         .findByIdRubriqueEvaluationOrderByOrdreAsc(re.getIdRubriqueEvaluation());
 
                 if (!questionsEval.isEmpty()) {
-                    // Si des questions spécifiques à l'évaluation existent, les utiliser
                     List<QuestionWithQualificatifDTO> questions = new ArrayList<>();
                     for (QuestionEvaluation qe : questionsEval) {
                         QuestionWithQualificatifDTO q = questionService.getQuestionWithQualificatifById(qe.getIdQuestion());
@@ -190,7 +181,6 @@ public class EvaluationServiceImpl implements EvaluationService {
                     }
                     dto.setQuestions(questions);
                 } else {
-                    // Sinon, utiliser les questions par défaut de la rubrique
                     dto.setQuestions(rubrique.getQuestions());
                 }
             } else {
@@ -228,12 +218,10 @@ public class EvaluationServiceImpl implements EvaluationService {
                 .build();
     }
 
-
     @Override
     public RubriqueEvaluationDTO addRubriqueToEvaluation(Long evaluationId, AddRubriqueToEvaluationRequest request, Long noEnseignant) {
         log.debug("Adding rubrique {} to evaluation {}", request.getIdRubrique(), evaluationId);
 
-        // Vérifier que l'évaluation existe et appartient à l'enseignant
         Evaluation evaluation = repository.findById(evaluationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Evaluation introuvable : id=" + evaluationId));
 
@@ -241,16 +229,13 @@ public class EvaluationServiceImpl implements EvaluationService {
             throw new BusinessException("Vous n'avez pas le droit de modifier cette évaluation");
         }
 
-        // Vérifier que la rubrique existe
         RubriqueDTO rubriqueDTO = rubriqueService.getRubriqueById(request.getIdRubrique());
 
-        // Vérifier qu'elle n'est pas déjà dans l'évaluation
         if (rubriqueEvaluationRepository.existsByIdEvaluationAndIdRubrique(evaluationId, request.getIdRubrique())) {
             throw new DuplicateResourceException("RubriqueEvaluation", "evaluation and rubrique",
                     evaluationId + " - " + request.getIdRubrique());
         }
 
-        //  Auto-incrémenter l'ordre si non fourni
         Integer ordre = request.getOrdre();
         if (ordre == null) {
             Integer maxOrdre = rubriqueEvaluationRepository.findMaxOrdreByEvaluation(evaluationId);
@@ -265,7 +250,7 @@ public class EvaluationServiceImpl implements EvaluationService {
                 .build();
 
         RubriqueEvaluation saved = rubriqueEvaluationRepository.save(rubriqueEvaluation);
-        //added to handle last night bug
+
         List<QuestionWithQualificatifDTO> questionsRubrique = rubriqueDTO.getQuestions();
         if (questionsRubrique != null && !questionsRubrique.isEmpty()) {
             int ordreQuestion = 1;
@@ -282,7 +267,6 @@ public class EvaluationServiceImpl implements EvaluationService {
         }
         log.info("Added rubrique {} to evaluation {} with ordre {}", request.getIdRubrique(), evaluationId, ordre);
 
-        // Retourner le DTO
         return RubriqueEvaluationDTO.builder()
                 .idRubriqueEvaluation(saved.getIdRubriqueEvaluation())
                 .idEvaluation(saved.getIdEvaluation())
@@ -294,13 +278,10 @@ public class EvaluationServiceImpl implements EvaluationService {
                 .build();
     }
 
-
-
     @Override
     public void removeRubriqueFromEvaluation(Long evaluationId, Long rubriqueEvaluationId, Long noEnseignant) {
         log.debug("Removing rubrique evaluation {} from evaluation {}", rubriqueEvaluationId, evaluationId);
 
-        // Vérifier que l'évaluation existe et appartient à l'enseignant
         Evaluation evaluation = repository.findById(evaluationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Evaluation introuvable : id=" + evaluationId));
 
@@ -316,7 +297,6 @@ public class EvaluationServiceImpl implements EvaluationService {
     public void reorderRubriquesInEvaluation(Long evaluationId, ReorderRubriquesInEvaluationRequest request, Long noEnseignant) {
         log.debug("Reordering rubriques in evaluation {}", evaluationId);
 
-        // Vérifier que l'évaluation existe et appartient à l'enseignant
         Evaluation evaluation = repository.findById(evaluationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Evaluation introuvable : id=" + evaluationId));
 
@@ -347,7 +327,6 @@ public class EvaluationServiceImpl implements EvaluationService {
                                                                  AddQuestionToRubriqueEvaluationRequest request, Long noEnseignant) {
         log.debug("Adding question {} to rubrique evaluation {}", request.getIdQuestion(), rubriqueEvaluationId);
 
-        // Vérifier que l'évaluation existe et appartient à l'enseignant
         Evaluation evaluation = repository.findById(evaluationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Evaluation introuvable : id=" + evaluationId));
 
@@ -355,7 +334,6 @@ public class EvaluationServiceImpl implements EvaluationService {
             throw new BusinessException("Vous n'avez pas le droit de modifier cette évaluation");
         }
 
-        // Vérifier que la rubrique evaluation existe
         RubriqueEvaluation rubriqueEvaluation = rubriqueEvaluationRepository.findById(rubriqueEvaluationId)
                 .orElseThrow(() -> new ResourceNotFoundException("RubriqueEvaluation", "id", rubriqueEvaluationId));
 
@@ -363,19 +341,16 @@ public class EvaluationServiceImpl implements EvaluationService {
             throw new BusinessException("RubriqueEvaluation does not belong to this evaluation");
         }
 
-        // Vérifier que la question existe
         if (!questionService.existsById(request.getIdQuestion())) {
             throw new ResourceNotFoundException("Question", "idQuestion", request.getIdQuestion());
         }
 
-        // Vérifier que la question n'est pas déjà dans cette rubrique
         if (questionEvaluationRepository.existsByIdRubriqueEvaluationAndIdQuestion(
                 rubriqueEvaluationId, request.getIdQuestion())) {
             throw new DuplicateResourceException("QuestionEvaluation", "rubrique and question",
                     rubriqueEvaluationId + " - " + request.getIdQuestion());
         }
 
-        //  Auto-incrémenter l'ordre si non fourni
         Integer ordre = request.getOrdre();
         if (ordre == null) {
             Integer maxOrdre = questionEvaluationRepository.findMaxOrdreByRubriqueEvaluation(rubriqueEvaluationId);
@@ -391,7 +366,6 @@ public class EvaluationServiceImpl implements EvaluationService {
         questionEvaluationRepository.save(questionEvaluation);
         log.info("Added question {} to rubrique evaluation {}", request.getIdQuestion(), rubriqueEvaluationId);
 
-        //  Retourner le DTO complet avec toutes les questions
         EvaluationWithRubriquesDTO evalWithRub = getByIdWithRubriques(evaluationId);
         return evalWithRub.getRubriques().stream()
                 .filter(r -> r.getIdRubriqueEvaluation().equals(rubriqueEvaluationId))
@@ -404,7 +378,6 @@ public class EvaluationServiceImpl implements EvaluationService {
                                                      Long questionEvaluationId, Long noEnseignant) {
         log.debug("Removing question evaluation {} from rubrique evaluation {}", questionEvaluationId, rubriqueEvaluationId);
 
-        // Vérifier que l'évaluation existe et appartient à l'enseignant
         Evaluation evaluation = repository.findById(evaluationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Evaluation introuvable : id=" + evaluationId));
 
@@ -421,7 +394,6 @@ public class EvaluationServiceImpl implements EvaluationService {
                                                      ReorderQuestionsInRubriqueEvaluationRequest request, Long noEnseignant) {
         log.debug("Reordering questions in rubrique evaluation {}", rubriqueEvaluationId);
 
-        // Vérifier que l'évaluation existe et appartient à l'enseignant
         Evaluation evaluation = repository.findById(evaluationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Evaluation introuvable : id=" + evaluationId));
 
@@ -446,16 +418,13 @@ public class EvaluationServiceImpl implements EvaluationService {
         log.info("Reordered {} questions in rubrique evaluation {}", request.getQuestionOrders().size(), rubriqueEvaluationId);
     }
 
-
-
-
     private Long currentNoEnseignant() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || authentication.getName() == null) {
             throw new BusinessException("Utilisateur non authentifié");
         }
 
-        String email = authentication.getName(); // subject JWT = email
+        String email = authentication.getName();
         Authentification auth = authentificationRepository.findByEmail(email)
                 .orElseThrow(() -> new BusinessException("Utilisateur non trouvé : " + email));
 
@@ -477,8 +446,6 @@ public class EvaluationServiceImpl implements EvaluationService {
         return eval;
     }
 
-    // ---------------- US 6.10 : lister évaluations partagées ----------------
-
     @Override
     @Transactional(readOnly = true)
     public List<EvaluationResponseDTO> listEvaluationsPartagees() {
@@ -493,7 +460,6 @@ public class EvaluationServiceImpl implements EvaluationService {
                 )
                 .map(d -> repository.findById(d.getIdEvaluation()).orElse(null))
                 .filter(e -> e != null)
-                // optionnel : exclure ses propres évaluations si tu veux
                 .filter(e -> e.getNoEnseignant() == null || !e.getNoEnseignant().equals(noEnseignant))
                 .map(mapper::toResponse)
                 .toList();
@@ -520,11 +486,11 @@ public class EvaluationServiceImpl implements EvaluationService {
         Evaluation copy = new Evaluation();
         copy.setIdEvaluation(null);
         copy.setNoEnseignant(noEnseignant);
-
         copy.setCodeFormation(source.getCodeFormation());
         copy.setAnneeUniversitaire(source.getAnneeUniversitaire());
         copy.setCodeUe(source.getCodeUe());
         copy.setCodeEc(source.getCodeEc());
+
         Short maxNoEval = repository.findMaxNoEvaluation(
                 source.getAnneeUniversitaire(),
                 noEnseignant,
@@ -542,10 +508,7 @@ public class EvaluationServiceImpl implements EvaluationService {
         copy.setFinReponse(source.getFinReponse());
 
         return mapper.toResponse(repository.save(copy));
-
     }
-
-
 
     @Override
     @Transactional(readOnly = true)
@@ -578,7 +541,6 @@ public class EvaluationServiceImpl implements EvaluationService {
         droitMapper.apply(droit, dto);
 
         return droitMapper.toResponse(DroitRepository.save(droit));
-
     }
 
     @Override
@@ -601,14 +563,14 @@ public class EvaluationServiceImpl implements EvaluationService {
         Long owner = eval.getNoEnseignant();
 
         boolean dup = Boolean.TRUE.equals(dto.getDuplication());
-        boolean cons = dup || Boolean.TRUE.equals(dto.getConsultation()); // duplication => consultation
+        boolean cons = dup || Boolean.TRUE.equals(dto.getConsultation());
 
         List<Integer> allIds = EnseignantRepository.findAllIds();
 
         for (Integer idEns : allIds) {
             Long cible = Long.valueOf(idEns);
 
-            if (cible.equals(owner)) continue; // pas à soi-même
+            if (cible.equals(owner)) continue;
 
             Droit droit = DroitRepository.findByIdEvaluationAndNoEnseignant(idEvaluation, cible)
                     .orElseGet(() -> {
@@ -626,12 +588,11 @@ public class EvaluationServiceImpl implements EvaluationService {
 
         return DroitResponseDTO.builder()
                 .idEvaluation(idEvaluation)
-                .noEnseignant(-1L) // convention "tous"
+                .noEnseignant(-1L)
                 .consultation(cons ? "O" : "N")
                 .duplication(dup ? "O" : "N")
                 .build();
     }
-
 
     @Override
     @Transactional(readOnly = true)
@@ -639,30 +600,68 @@ public class EvaluationServiceImpl implements EvaluationService {
         return promotionRepository.findAnneesUniversitairesByCodeFormation(codeFormation);
     }
 
-
-    //Changer l'etat d'evaluation - Achraf EL AIDI IDRISSI
+    // Changer l'etat d'evaluation - Achraf EL AIDI IDRISSI
     @Override
     public EvaluationResponseDTO updateEtat(Long evaluationId, String etat) {
-        Evaluation eval = repository.findById(evaluationId).orElseThrow(() -> new ResourceNotFoundException("Evaluation introuvable : id=" + evaluationId));
-
+        Evaluation eval = repository.findById(evaluationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Evaluation introuvable : id=" + evaluationId));
 
         System.out.println("Etat actuel = " + eval.getEtat());
         System.out.println("Etat demandé = " + etat);
 
-        if(eval.getEtat().equals("ELA") && etat.equals("DIS")) {
+        if (eval.getEtat().equals("ELA") && etat.equals("DIS")) {
             eval.setEtat("DIS");
-        }
-        else if(eval.getEtat().equals("DIS") && etat.equals("CLO")) {
+        } else if (eval.getEtat().equals("DIS") && etat.equals("CLO")) {
             eval.setEtat("CLO");
-        }
-        else {
+        } else {
             throw new RuntimeException("Transition d'état non autorisée");
         }
 
         repository.save(eval);
-
         return mapper.toResponse(eval);
-
     }
 
+    // ranya
+    @Override
+    public RubriqueEvaluationDTO updateDesignationRubriqueEvaluation(
+            Long evaluationId,
+            Long rubriqueEvaluationId,
+            String designation,
+            Long noEnseignant) {
+
+        log.debug("Updating designation of rubrique evaluation {} in evaluation {}",
+                rubriqueEvaluationId, evaluationId);
+
+        Evaluation evaluation = repository.findById(evaluationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Evaluation introuvable : id=" + evaluationId));
+
+        if (!evaluation.getNoEnseignant().equals(noEnseignant)) {
+            throw new BusinessException(
+                    "Vous n'avez pas le droit de modifier cette évaluation");
+        }
+
+        RubriqueEvaluation rubriqueEvaluation = rubriqueEvaluationRepository
+                .findById(rubriqueEvaluationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "RubriqueEvaluation introuvable : id=" + rubriqueEvaluationId));
+
+        if (!rubriqueEvaluation.getIdEvaluation().equals(evaluationId)) {
+            throw new BusinessException(
+                    "Cette rubrique n'appartient pas à cette évaluation");
+        }
+
+        rubriqueEvaluation.setDesignation(designation);
+        rubriqueEvaluationRepository.save(rubriqueEvaluation);
+
+        log.info("Updated designation of rubrique evaluation {} to '{}'",
+                rubriqueEvaluationId, designation);
+
+        EvaluationWithRubriquesDTO evalWithRub = getByIdWithRubriques(evaluationId);
+        return evalWithRub.getRubriques().stream()
+                .filter(r -> r.getIdRubriqueEvaluation().equals(rubriqueEvaluationId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "RubriqueEvaluation", "id", rubriqueEvaluationId));
+    }
 }
