@@ -11,6 +11,7 @@ public class PromotionResponseDTO {
 
     private String codeFormation;
     private String anneeUniversitaire;
+    private Integer nbEtudiantActuel;
 
     private Long noEnseignant;
     private String siglePromotion;
