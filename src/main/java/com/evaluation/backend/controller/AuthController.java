@@ -63,11 +63,11 @@ public class AuthController {
         }
 
         return new UserInfoDTO(
-                user.getId(),
-                user.getRole(),
-                nom,
-                prenom,
-                user.getEmail()
+            user.getId(),
+            user.getRole(),
+            nom,
+            prenom,
+            user.getEmail()
         );
     }
 
