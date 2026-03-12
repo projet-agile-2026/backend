@@ -7,6 +7,7 @@ import com.evaluation.backend.dto.Evaluation.EvaluationRequestDTO;
 import com.evaluation.backend.dto.Evaluation.EvaluationResponseDTO;
 import com.evaluation.backend.dto.Evaluation.*;
 import java.util.List;
+import com.evaluation.backend.dto.Statistiques.StatistiquesEvaluationDTO;
 
 public interface EvaluationService {
 
@@ -19,6 +20,7 @@ public interface EvaluationService {
     EvaluationResponseDTO create(EvaluationRequestDTO dto, Long noEnseignant);
 
     EvaluationResponseDTO update(Long id, EvaluationRequestDTO dto);
+
 
     void delete(Long id);
 
@@ -56,16 +58,29 @@ public interface EvaluationService {
 
     // US 6.9
     List<DroitResponseDTO> listDroits(Long idEvaluation);
-    DroitResponseDTO upsertDroit(Long idEvaluation, DroitRequestDTO dto);
-    void deleteDroit(Long idEvaluation, Long noEnseignantCible);
-    DroitResponseDTO donnerDroitATous(Long idEvaluation, DroitTousRequestDTO dto);
 
+    DroitResponseDTO upsertDroit(Long idEvaluation, DroitRequestDTO dto);
+
+    void deleteDroit(Long idEvaluation, Long noEnseignantCible);
+
+    DroitResponseDTO donnerDroitATous(Long idEvaluation, DroitTousRequestDTO dto);
 
 
     List<String> getAnneesUniversitaires(String codeFormation);
 
+    //Statistiques
+    // US : Consulter les statistiques d'une évaluation
+    StatistiquesEvaluationDTO getStatistiques(Long idEvaluation);
+
+    byte[] generateStatistiquesPdf(Long idEvaluation) throws Exception;
 
     //Changer l'etat d'evaluation - Achraf EL AIDI IDRISSI
     EvaluationResponseDTO updateEtat(Long evaluationId, String etat);
+    //ranya
 
+    RubriqueEvaluationDTO updateDesignationRubriqueEvaluation(
+            Long evaluationId,
+            Long rubriqueEvaluationId,
+            String designation,
+            Long noEnseignant);
 }

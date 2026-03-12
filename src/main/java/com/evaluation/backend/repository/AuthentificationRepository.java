@@ -21,5 +21,6 @@ public interface AuthentificationRepository
     Optional<Authentification> findByEmail(
             String email
     );
+    Optional<Authentification> findByEnseignantId(Integer enseignantId);
 }
 

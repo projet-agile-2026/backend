@@ -10,4 +10,6 @@ public interface EtudiantRepository extends JpaRepository<Etudiant, Long> {
     List<Etudiant> findByCodeFormationAndAnneeUniversitaire(String codeFormation, String anneeUniversitaire);
 
     boolean existsByCodeFormationAndAnneeUniversitaire(String codeFormation, String anneeUniversitaire);
+
+    int countByCodeFormationAndAnneeUniversitaire(String codeFormation, String anneeUniversitaire);
 }
