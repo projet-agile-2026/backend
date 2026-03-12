@@ -15,6 +15,9 @@ import com.evaluation.backend.entity.Authentification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import com.evaluation.backend.dto.Statistiques.StatistiquesEvaluationDTO;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 
 import java.util.List;
 
@@ -213,6 +216,18 @@ public class EvaluationController {
     public DroitResponseDTO donnerDroitATous(@PathVariable Long idEvaluation,
                                              @Valid @RequestBody DroitTousRequestDTO dto) {
         return service.donnerDroitATous(idEvaluation, dto);
+    }
+    @GetMapping("/{id}/statistiques")
+    public ResponseEntity<StatistiquesEvaluationDTO> getStatistiques(@PathVariable Long id) {
+        return ResponseEntity.ok(service.getStatistiques(id));
+    }
+    @GetMapping("/{id}/export-pdf")
+    public ResponseEntity<byte[]> exportPdf(@PathVariable Long id) throws Exception {
+        byte[] pdf = service.generateStatistiquesPdf(id);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=statistiques.pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
     }
 
 

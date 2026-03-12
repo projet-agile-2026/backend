@@ -21,6 +21,14 @@ import com.evaluation.backend.dto.Rubrique.RubriqueDTO;
 import com.evaluation.backend.exception.DuplicateResourceException;
 import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
+import com.evaluation.backend.entity.Question;
+import com.evaluation.backend.dto.Statistiques.QuestionStatDTO;
+import com.evaluation.backend.dto.Statistiques.RubriqueStatDTO;
+import com.evaluation.backend.dto.Statistiques.StatistiquesEvaluationDTO;
+import java.util.HashMap;
+import java.util.Map;
+import com.evaluation.backend.repository.ReponseQuestionRepository;
+import com.evaluation.backend.repository.QualificatifRepository;
 
 import com.evaluation.backend.repository.PromotionRepository;
 
@@ -29,6 +37,9 @@ import com.evaluation.backend.repository.PromotionRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import com.evaluation.backend.repository.AuthentificationRepository;
+import com.itextpdf.text.*;
+import com.itextpdf.text.pdf.*;
+import java.io.ByteArrayOutputStream;
 
 
 
@@ -60,6 +71,11 @@ public class EvaluationServiceImpl implements EvaluationService {
     private final EnseignantRepository EnseignantRepository;
 
     private final PromotionRepository promotionRepository;
+
+    private final ReponseQuestionRepository reponseQuestionRepository;
+    private final QualificatifRepository    qualificatifRepository;
+    private final QuestionRepository questionRepository;
+
 
 
 
@@ -633,6 +649,344 @@ public class EvaluationServiceImpl implements EvaluationService {
         return promotionRepository.findAnneesUniversitairesByCodeFormation(codeFormation);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public StatistiquesEvaluationDTO getStatistiques(Long idEvaluation) {
 
+        Evaluation evaluation = repository.findById(idEvaluation)
+                .orElseThrow(() -> new ResourceNotFoundException("Evaluation introuvable : id=" + idEvaluation));
+
+        if (!"CLO".equals(evaluation.getEtat())) {
+            throw new BusinessException("Les statistiques sont disponibles uniquement pour une évaluation clôturée.");
+        }
+
+        Long totalRepondants = reponseQuestionRepository.countRepondantsByEvaluation(idEvaluation);
+
+        List<RubriqueEvaluation> rubriques = rubriqueEvaluationRepository
+                .findByIdEvaluationOrderByOrdreAsc(idEvaluation);
+
+        List<Object[]> rawStats = reponseQuestionRepository.findRawStatsByEvaluation(idEvaluation);
+
+        Map<Long, Object[]> statsMap = new HashMap<>();
+        for (Object[] row : rawStats) {
+            Long idQE = ((Number) row[0]).longValue();
+            statsMap.put(idQE, row);
+        }
+
+        List<RubriqueStatDTO> rubriqueDTOs = new ArrayList<>();
+
+        for (RubriqueEvaluation rubrique : rubriques) {
+
+            // ── Désignation depuis RUBRIQUE.DESIGNATION ──────────────────────
+            String designationRubrique = null;
+            if (rubrique.getIdRubrique() != null) {
+                try {
+                    designationRubrique = rubriqueService
+                            .getRubriqueById(rubrique.getIdRubrique())
+                            .getDesignation();
+                } catch (Exception ignored) {}
+            }
+            if (designationRubrique == null) {
+                designationRubrique = rubrique.getDesignation();
+            }
+
+            List<QuestionEvaluation> questions = questionEvaluationRepository
+                    .findByIdRubriqueEvaluationOrderByOrdreAsc(rubrique.getIdRubriqueEvaluation());
+
+            List<QuestionStatDTO> questionDTOs = new ArrayList<>();
+
+            for (QuestionEvaluation qe : questions) {
+
+                // ── Intitulé + Qualificatif depuis QUESTION ───────────────────
+                String intitule = qe.getIntitule();
+                String minimal  = null;
+                String maximal  = null;
+
+                if (qe.getIdQuestion() != null) {
+                    questionRepository.findById(qe.getIdQuestion()).ifPresent(question -> {
+                        // stocker dans tableau pour accès depuis lambda
+                    });
+
+                    var questionOpt = questionRepository.findById(qe.getIdQuestion());
+                    if (questionOpt.isPresent()) {
+                        var question = questionOpt.get();
+
+                        if (intitule == null) {
+                            intitule = question.getIntitule();
+                        }
+
+                        // Qualificatif : d'abord sur QE, sinon sur QUESTION
+                        Long idQualificatif = qe.getIdQualificatif();
+                        if (idQualificatif == null && question.getIdQualificatif() != null) {
+                            try {
+                                idQualificatif = Long.valueOf(question.getIdQualificatif());
+                            } catch (NumberFormatException ignored) {}
+                        }
+
+                        if (idQualificatif != null) {
+                            var qualOpt = qualificatifRepository.findById(idQualificatif);
+                            if (qualOpt.isPresent()) {
+                                minimal = qualOpt.get().getMinimal();
+                                maximal = qualOpt.get().getMaximal();
+                            }
+                        }
+                    }
+                }
+
+                // ── Stats depuis la Map ───────────────────────────────────────
+                Object[] row = statsMap.get(qe.getIdQuestionEvaluation());
+
+                QuestionStatDTO dto;
+                if (row != null) {
+                    dto = QuestionStatDTO.builder()
+                            .idQuestionEvaluation(qe.getIdQuestionEvaluation())
+                            .ordre(qe.getOrdre())
+                            .intitule(intitule)
+                            .minimal(minimal)
+                            .maximal(maximal)
+                            .nbRepondants(row[4]  != null ? ((Number) row[4]).longValue()   : 0L)
+                            .moyenne(     row[5]  != null ? ((Number) row[5]).doubleValue() : null)
+                            .minimum(     row[6]  != null ? ((Number) row[6]).longValue()   : null)
+                            .maximum(     row[7]  != null ? ((Number) row[7]).longValue()   : null)
+                            .ecartType(   row[8]  != null ? ((Number) row[8]).doubleValue() : null)
+                            .mediane(     row[9]  != null ? ((Number) row[9]).doubleValue() : null)
+                            .nb1(         row[10] != null ? ((Number) row[10]).longValue()  : 0L)
+                            .nb2(         row[11] != null ? ((Number) row[11]).longValue()  : 0L)
+                            .nb3(         row[12] != null ? ((Number) row[12]).longValue()  : 0L)
+                            .nb4(         row[13] != null ? ((Number) row[13]).longValue()  : 0L)
+                            .nb5(         row[14] != null ? ((Number) row[14]).longValue()  : 0L)
+                            .build();
+                } else {
+                    dto = QuestionStatDTO.builder()
+                            .idQuestionEvaluation(qe.getIdQuestionEvaluation())
+                            .ordre(qe.getOrdre())
+                            .intitule(intitule)
+                            .minimal(minimal)
+                            .maximal(maximal)
+                            .nbRepondants(0L)
+                            .nb1(0L).nb2(0L).nb3(0L).nb4(0L).nb5(0L)
+                            .build();
+                }
+
+                questionDTOs.add(dto);
+            }
+
+            rubriqueDTOs.add(RubriqueStatDTO.builder()
+                    .idRubriqueEvaluation(rubrique.getIdRubriqueEvaluation())
+                    .ordre(rubrique.getOrdre())
+                    .designation(designationRubrique)
+                    .questions(questionDTOs)
+                    .build());
+        }
+        String emailEnseignant = authentificationRepository
+                .findByEnseignantId(evaluation.getNoEnseignant().intValue())
+                .map(Authentification::getEmail)
+                .orElse("");
+
+
+        return StatistiquesEvaluationDTO.builder()
+                .idEvaluation(evaluation.getIdEvaluation())
+                .designation(evaluation.getDesignation())
+                .codeFormation(evaluation.getCodeFormation())
+                .anneeUniversitaire(evaluation.getAnneeUniversitaire())
+                .codeUe(evaluation.getCodeUe())
+                .codeEc(evaluation.getCodeEc())
+                .noEvaluation(evaluation.getNoEvaluation())
+                .etat(evaluation.getEtat())
+                .periode(evaluation.getPeriode())
+                .debutReponse(evaluation.getDebutReponse())
+                .finReponse(evaluation.getFinReponse())
+                .totalRepondants(totalRepondants)
+                .rubriques(rubriqueDTOs)
+                .emailEnseignant(emailEnseignant)
+                .build();
+    }
+
+    public byte[] generateStatistiquesPdf(Long idEvaluation) throws Exception {
+        StatistiquesEvaluationDTO stats = getStatistiques(idEvaluation);
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        Document document = new Document(PageSize.A4, 36, 36, 100, 60);
+        PdfWriter writer = PdfWriter.getInstance(document, baos);
+
+        Font bold = new Font(Font.FontFamily.HELVETICA, 11, Font.BOLD);
+        Font normal = new Font(Font.FontFamily.HELVETICA, 9, Font.NORMAL);
+        Font small = new Font(Font.FontFamily.HELVETICA, 8, Font.NORMAL);
+
+        String today = new java.text.SimpleDateFormat("dd MMMM yyyy", java.util.Locale.FRENCH)
+                .format(new java.util.Date());
+        String email = stats.getEmailEnseignant() != null ? stats.getEmailEnseignant() : "";
+
+        // ── Header + Footer sur chaque page ──────────────────────────────────
+        writer.setPageEvent(new PdfPageEventHelper() {
+
+            private void drawHeader(PdfContentByte cb, Document doc) {
+                try {
+                    float pageWidth = doc.getPageSize().getWidth();
+                    float top = doc.getPageSize().getHeight() - 20;
+
+                    // Ligne 1 : M2DOSI | titre | année
+                    cb.setFontAndSize(BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.CP1252, false), 11);
+                    cb.beginText();
+                    cb.showTextAligned(Element.ALIGN_LEFT,  stats.getCodeFormation(), 36, top, 0);
+                    cb.showTextAligned(Element.ALIGN_CENTER, "Evaluation d'un enseignement", pageWidth / 2, top, 0);
+                    cb.showTextAligned(Element.ALIGN_RIGHT, stats.getAnneeUniversitaire(), pageWidth - 36, top, 0);
+                    cb.endText();
+
+                    // Ligne séparatrice
+                    cb.setLineWidth(0.5f);
+                    cb.moveTo(36, top - 6);
+                    cb.lineTo(pageWidth - 36, top - 6);
+                    cb.stroke();
+
+                    // Ligne 2 : UE | EC | Période (petite police)
+                    cb.setFontAndSize(BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, false), 8);
+                    cb.beginText();
+                    cb.showTextAligned(Element.ALIGN_LEFT,
+                            "UE: " + stats.getCodeUe() + "   EC: " + (stats.getCodeEc() != null ? stats.getCodeEc() : "—") + "   Période: " + (stats.getPeriode() != null ? stats.getPeriode() : "—"),
+                            36, top - 16, 0);
+                    cb.endText();
+
+                } catch (Exception ignored) {}
+            }
+
+            private void drawFooter(PdfContentByte cb, Document doc, int pageNumber) {
+                try {
+                    float pageWidth = doc.getPageSize().getWidth();
+                    float bottom = 20;
+
+                    cb.setLineWidth(0.3f);
+                    cb.moveTo(36, bottom + 10);
+                    cb.lineTo(pageWidth - 36, bottom + 10);
+                    cb.stroke();
+
+                    cb.setFontAndSize(BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, false), 8);
+                    cb.beginText();
+                    cb.showTextAligned(Element.ALIGN_LEFT, email + "  —  " + today, 36, bottom, 0);
+                    cb.showTextAligned(Element.ALIGN_RIGHT, "Page " + pageNumber, pageWidth - 36, bottom, 0);
+                    cb.endText();
+
+                } catch (Exception ignored) {}
+            }
+
+            @Override
+            public void onEndPage(PdfWriter w, Document doc) {
+                PdfContentByte cb = w.getDirectContent();
+                drawHeader(cb, doc);
+                drawFooter(cb, doc, w.getPageNumber());
+            }
+        });
+
+        document.open();
+
+        // ── Métadonnées (première page seulement) ────────────────────────────
+        PdfPTable meta = new PdfPTable(2);
+        meta.setWidthPercentage(55);
+        meta.setHorizontalAlignment(Element.ALIGN_LEFT);
+        meta.setWidths(new float[]{3f, 3f});
+        meta.setSpacingBefore(10f);
+        addMetaRow(meta, "Unité d'Enseignement", stats.getCodeUe(), bold, normal);
+        addMetaRow(meta, "Elément Constitutif", stats.getCodeEc() != null ? stats.getCodeEc() : "—", bold, normal);
+        addMetaRow(meta, "Période", stats.getPeriode() != null ? stats.getPeriode() : "—", bold, normal);
+        document.add(meta);
+        document.add(Chunk.NEWLINE);
+
+        // ── Rubriques ────────────────────────────────────────────────────────
+        for (RubriqueStatDTO rubrique : stats.getRubriques()) {
+            PdfPTable table = new PdfPTable(9);
+            table.setWidthPercentage(100);
+            table.setWidths(new float[]{5f, 2.5f, 1f, 1f, 1f, 1f, 1f, 2.5f, 1.5f});
+            table.setSpacingBefore(8f);
+            table.setKeepTogether(true); // ← ne pas couper une rubrique
+
+            // Titre rubrique
+            PdfPCell rubCell = new PdfPCell(new Phrase(rubrique.getDesignation(), bold));
+            rubCell.setColspan(9);
+            rubCell.setBackgroundColor(new BaseColor(170, 170, 170));
+            rubCell.setPadding(4);
+            table.addCell(rubCell);
+
+            // Sous-header
+            table.addCell(makeHeaderCell("", bold));
+            table.addCell(makeHeaderCell("Minimum", small));
+            for (String n : new String[]{"1","2","3","4","5"})
+                table.addCell(makeHeaderCell(n, bold));
+            table.addCell(makeHeaderCell("Maximum", small));
+            table.addCell(makeHeaderCell("Moyen", small));
+
+            // Questions
+            for (QuestionStatDTO q : rubrique.getQuestions()) {
+                table.addCell(makeCell(q.getIntitule(), normal, Element.ALIGN_LEFT));
+                table.addCell(makeCell(q.getMinimal(), normal, Element.ALIGN_LEFT));
+                table.addCell(makeCell(str(q.getNb1()), normal, Element.ALIGN_CENTER));
+                table.addCell(makeCell(str(q.getNb2()), normal, Element.ALIGN_CENTER));
+                table.addCell(makeCell(str(q.getNb3()), normal, Element.ALIGN_CENTER));
+                table.addCell(makeCell(str(q.getNb4()), normal, Element.ALIGN_CENTER));
+                table.addCell(makeCell(str(q.getNb5()), normal, Element.ALIGN_CENTER));
+                table.addCell(makeCell(q.getMaximal(), normal, Element.ALIGN_LEFT));
+
+                PdfPCell moyCell = new PdfPCell(new Phrase(
+                        q.getMoyenne() != null ? String.format("%.1f", q.getMoyenne()) : "—", bold));
+                moyCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+                moyCell.setPadding(3);
+                if (q.getMoyenne() != null) moyCell.setBackgroundColor(moyenneColor(q.getMoyenne()));
+                table.addCell(moyCell);
+            }
+
+            document.add(table);
+        }
+
+        // ── Commentaires ─────────────────────────────────────────────────────
+        PdfPTable comm = new PdfPTable(1);
+        comm.setWidthPercentage(100);
+        comm.setSpacingBefore(10f);
+        comm.setKeepTogether(true);
+        PdfPCell commHead = new PdfPCell(new Phrase("Commentaires", bold));
+        commHead.setBackgroundColor(new BaseColor(170, 170, 170));
+        commHead.setPadding(4);
+        comm.addCell(commHead);
+        PdfPCell commBody = new PdfPCell(new Phrase(" "));
+        commBody.setMinimumHeight(50f);
+        comm.addCell(commBody);
+        document.add(comm);
+
+        document.close();
+        return baos.toByteArray();
+    }
+    private void addMetaRow(PdfPTable t, String label, String val, Font bold, Font normal) {
+        PdfPCell l = new PdfPCell(new Phrase(label, bold)); l.setPadding(3); t.addCell(l);
+        PdfPCell v = new PdfPCell(new Phrase(val, normal)); v.setPadding(3); t.addCell(v);
+    }
+
+    private PdfPCell makeCell(String text, Font font, int align) {
+        PdfPCell c = new PdfPCell(new Phrase(text != null ? text : "—", font));
+        c.setHorizontalAlignment(align); c.setPadding(3); return c;
+    }
+
+    private PdfPCell makeHeaderCell(String text, Font font) {
+        PdfPCell c = new PdfPCell(new Phrase(text, font));
+        c.setBackgroundColor(new BaseColor(210, 210, 210));
+        c.setHorizontalAlignment(Element.ALIGN_CENTER); c.setPadding(3); return c;
+    }
+
+    private String str(Long v) { return v != null ? String.valueOf(v) : "0"; }
+
+    private BaseColor moyenneColor(double m) {
+        double ratio = Math.max(0, Math.min(1, (m - 1) / 4.0));
+        double h = ratio * 120.0 / 360.0, s = 0.75, l = 0.40;
+        double q = l < 0.5 ? l*(1+s) : l+s-l*s, p = 2*l-q;
+        return new BaseColor(
+                (int)(h2rgb(p,q,h+1.0/3)*255),
+                (int)(h2rgb(p,q,h)*255),
+                (int)(h2rgb(p,q,h-1.0/3)*255));
+    }
+
+    private double h2rgb(double p, double q, double t) {
+        if (t<0) t+=1; if (t>1) t-=1;
+        if (t<1.0/6) return p+(q-p)*6*t;
+        if (t<1.0/2) return q;
+        if (t<2.0/3) return p+(q-p)*(2.0/3-t)*6;
+        return p;
+    }
 
 }

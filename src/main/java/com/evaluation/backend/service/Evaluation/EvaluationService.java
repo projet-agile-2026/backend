@@ -7,6 +7,7 @@ import com.evaluation.backend.dto.Evaluation.EvaluationRequestDTO;
 import com.evaluation.backend.dto.Evaluation.EvaluationResponseDTO;
 import com.evaluation.backend.dto.Evaluation.*;
 import java.util.List;
+import com.evaluation.backend.dto.Statistiques.StatistiquesEvaluationDTO;
 
 public interface EvaluationService {
 
@@ -19,6 +20,7 @@ public interface EvaluationService {
     EvaluationResponseDTO create(EvaluationRequestDTO dto, Long noEnseignant);
 
     EvaluationResponseDTO update(Long id, EvaluationRequestDTO dto);
+
 
     void delete(Long id);
 
@@ -64,4 +66,9 @@ public interface EvaluationService {
 
     List<String> getAnneesUniversitaires(String codeFormation);
 
+    //Statistiques
+    // US : Consulter les statistiques d'une évaluation
+    StatistiquesEvaluationDTO getStatistiques(Long idEvaluation);
+
+    byte[] generateStatistiquesPdf(Long idEvaluation) throws Exception;
 }
