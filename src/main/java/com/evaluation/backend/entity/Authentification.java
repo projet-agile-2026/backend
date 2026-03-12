@@ -35,6 +35,9 @@ public class Authentification implements UserDetails {
     @Column(name = "MOT_PASSE")
     private String motPasse;
 
+    @Column(name = "ACTIVE")
+    private Boolean active=false;
+
     @ManyToOne
     @JoinColumn(name = "NO_ETUDIANT")
     private Etudiant etudiant;
@@ -68,5 +71,7 @@ public class Authentification implements UserDetails {
     public boolean isCredentialsNonExpired() { return true; }
 
     @Override
-    public boolean isEnabled() { return true; }
+    public boolean isEnabled() {
+        return Boolean.TRUE.equals(active);
+    }
 }
