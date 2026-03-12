@@ -6,6 +6,7 @@ import lombok.experimental.SuperBuilder;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Getter
@@ -37,6 +38,8 @@ public class Rubrique implements Serializable {
     @Column(name = "ORDRE")
     private Integer ordre;
 
+    @OneToMany(mappedBy = "rubrique", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<RubriqueQuestion> questions;
 
 
 }

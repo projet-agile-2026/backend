@@ -5,21 +5,22 @@ import com.evaluation.backend.dto.Droit.DroitResponseDTO;
 import com.evaluation.backend.dto.Droit.DroitTousRequestDTO;
 import com.evaluation.backend.dto.Evaluation.EvaluationRequestDTO;
 import com.evaluation.backend.dto.Evaluation.EvaluationResponseDTO;
+import com.evaluation.backend.dto.Statistiques.StatistiquesEvaluationDTO;
 import com.evaluation.backend.repository.AuthentificationRepository;
 import com.evaluation.backend.service.Evaluation.EvaluationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import com.evaluation.backend.dto.Evaluation.*;
 import com.evaluation.backend.entity.Authentification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import com.evaluation.backend.dto.Statistiques.StatistiquesEvaluationDTO;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
@@ -230,5 +231,29 @@ public class EvaluationController {
                 .body(pdf);
     }
 
+
+    //Changer l'etat d'evaluation - Achraf EL AIDI IDRISSI
+    @PutMapping("/{id}/etat")
+    public EvaluationResponseDTO updateEtat(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> payload) {
+
+        String etat = payload.get("etat");
+        return service.updateEtat(id, etat);
+    }
+    //ranya
+    @PutMapping("/{evaluationId}/rubriques/{rubriqueEvaluationId}/designation")
+    public ResponseEntity<RubriqueEvaluationDTO> updateDesignationRubrique(
+            @PathVariable Long evaluationId,
+            @PathVariable Long rubriqueEvaluationId,
+            @RequestBody Map<String, String> payload,
+            Authentication authentication) {
+
+        Long noEnseignant = getConnectedEnseignantId(authentication);
+        String designation = payload.get("designation");
+        RubriqueEvaluationDTO result = service.updateDesignationRubriqueEvaluation(
+                evaluationId, rubriqueEvaluationId, designation, noEnseignant);
+        return ResponseEntity.ok(result);
+    }
 
 }

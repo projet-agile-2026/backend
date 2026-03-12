@@ -58,10 +58,12 @@ public interface EvaluationService {
 
     // US 6.9
     List<DroitResponseDTO> listDroits(Long idEvaluation);
-    DroitResponseDTO upsertDroit(Long idEvaluation, DroitRequestDTO dto);
-    void deleteDroit(Long idEvaluation, Long noEnseignantCible);
-    DroitResponseDTO donnerDroitATous(Long idEvaluation, DroitTousRequestDTO dto);
 
+    DroitResponseDTO upsertDroit(Long idEvaluation, DroitRequestDTO dto);
+
+    void deleteDroit(Long idEvaluation, Long noEnseignantCible);
+
+    DroitResponseDTO donnerDroitATous(Long idEvaluation, DroitTousRequestDTO dto);
 
 
     List<String> getAnneesUniversitaires(String codeFormation);
@@ -71,4 +73,14 @@ public interface EvaluationService {
     StatistiquesEvaluationDTO getStatistiques(Long idEvaluation);
 
     byte[] generateStatistiquesPdf(Long idEvaluation) throws Exception;
+
+    //Changer l'etat d'evaluation - Achraf EL AIDI IDRISSI
+    EvaluationResponseDTO updateEtat(Long evaluationId, String etat);
+    //ranya
+
+    RubriqueEvaluationDTO updateDesignationRubriqueEvaluation(
+            Long evaluationId,
+            Long rubriqueEvaluationId,
+            String designation,
+            Long noEnseignant);
 }
