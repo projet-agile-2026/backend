@@ -167,7 +167,6 @@ public class EvaluationServiceImpl implements EvaluationService {
 
         for (RubriqueEvaluation re : rubriquesEvaluation) {
 
-            // ← MODIFIÉ : on passe designation(re.getDesignation()) dans le builder
             RubriqueEvaluationDTO dto = RubriqueEvaluationDTO.builder()
                     .idRubriqueEvaluation(re.getIdRubriqueEvaluation())
                     .idEvaluation(re.getIdEvaluation())
@@ -180,8 +179,6 @@ public class EvaluationServiceImpl implements EvaluationService {
             if (re.getIdRubrique() != null) {
                 RubriqueDTO rubrique = rubriqueService.getRubriqueById(re.getIdRubrique());
 
-                // ← MODIFIÉ : on utilise la designation de RubriqueEvaluation si elle existe,
-                //             sinon on tombe back sur celle de la rubrique source
                 dto.setDesignation(re.getDesignation() != null ? re.getDesignation() : rubrique.getDesignation());
                 dto.setType(rubrique.getType());
 
@@ -195,6 +192,16 @@ public class EvaluationServiceImpl implements EvaluationService {
                         QuestionWithQualificatifDTO q = questionService.getQuestionWithQualificatifById(qe.getIdQuestion());
                         q.setIdQuestionEvaluation(qe.getIdQuestionEvaluation());
                         q.setOrdre(qe.getOrdre());
+                        // ranya - conserver l'intitulé personnalisé
+                        q.setIntitule(qe.getIntitule() != null ? qe.getIntitule() : q.getIntitule());
+                        // ranya - conserver le qualificatif personnalisé
+                        if (qe.getIdQualificatif() != null) {
+                            qualificatifRepository.findById(qe.getIdQualificatif()).ifPresent(qual -> {
+                                q.setIdQualificatif(qual.getIdQualificatif());
+                                q.setMaximal(qual.getMaximal());
+                                q.setMinimal(qual.getMinimal());
+                            });
+                        }
                         questions.add(q);
                     }
                     dto.setQuestions(questions);
@@ -211,6 +218,16 @@ public class EvaluationServiceImpl implements EvaluationService {
                     QuestionWithQualificatifDTO q = questionService.getQuestionWithQualificatifById(qe.getIdQuestion());
                     q.setOrdre(qe.getOrdre());
                     q.setIdQuestionEvaluation(qe.getIdQuestionEvaluation());
+                    // ranya - conserver l'intitulé personnalisé
+                    q.setIntitule(qe.getIntitule() != null ? qe.getIntitule() : q.getIntitule());
+                    // ranya - conserver le qualificatif personnalisé
+                    if (qe.getIdQualificatif() != null) {
+                        qualificatifRepository.findById(qe.getIdQualificatif()).ifPresent(qual -> {
+                            q.setIdQualificatif(qual.getIdQualificatif());
+                            q.setMaximal(qual.getMaximal());
+                            q.setMinimal(qual.getMinimal());
+                        });
+                    }
                     questions.add(q);
                 }
                 dto.setQuestions(questions);
@@ -683,6 +700,68 @@ public class EvaluationServiceImpl implements EvaluationService {
                         "RubriqueEvaluation", "id", rubriqueEvaluationId));
     }
 
+    // ranya
+    @Override
+    public QuestionWithQualificatifDTO updateIntituleQuestionEvaluation(
+            Long evaluationId, Long rubriqueEvaluationId,
+            Long questionEvaluationId, String intitule, Long noEnseignant) {
+
+        Evaluation evaluation = repository.findById(evaluationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Evaluation introuvable : id=" + evaluationId));
+        if (!evaluation.getNoEnseignant().equals(noEnseignant))
+            throw new BusinessException("Vous n'avez pas le droit de modifier cette évaluation");
+
+        QuestionEvaluation qe = questionEvaluationRepository.findById(questionEvaluationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "QuestionEvaluation introuvable : id=" + questionEvaluationId));
+        if (!qe.getIdRubriqueEvaluation().equals(rubriqueEvaluationId))
+            throw new BusinessException("Cette question n'appartient pas à cette rubrique");
+
+        qe.setIntitule(intitule);
+        questionEvaluationRepository.save(qe);
+        log.info("Updated intitule of question evaluation {} to '{}'", questionEvaluationId, intitule);
+
+        return getByIdWithRubriques(evaluationId).getRubriques().stream()
+                .filter(r -> r.getIdRubriqueEvaluation().equals(rubriqueEvaluationId))
+                .flatMap(r -> r.getQuestions().stream())
+                .filter(q -> q.getIdQuestionEvaluation().equals(questionEvaluationId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "QuestionEvaluation", "id", questionEvaluationId));
+    }
+
+    // ranya
+    @Override
+    public QuestionWithQualificatifDTO updateQualificatifQuestionEvaluation(
+            Long evaluationId, Long rubriqueEvaluationId,
+            Long questionEvaluationId, Long idQualificatif, Long noEnseignant) {
+
+        Evaluation evaluation = repository.findById(evaluationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Evaluation introuvable : id=" + evaluationId));
+        if (!evaluation.getNoEnseignant().equals(noEnseignant))
+            throw new BusinessException("Vous n'avez pas le droit de modifier cette évaluation");
+
+        QuestionEvaluation qe = questionEvaluationRepository.findById(questionEvaluationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "QuestionEvaluation introuvable : id=" + questionEvaluationId));
+        if (!qe.getIdRubriqueEvaluation().equals(rubriqueEvaluationId))
+            throw new BusinessException("Cette question n'appartient pas à cette rubrique");
+
+        qe.setIdQualificatif(idQualificatif);
+        questionEvaluationRepository.save(qe);
+        log.info("Updated qualificatif of question evaluation {} to id={}", questionEvaluationId, idQualificatif);
+
+        return getByIdWithRubriques(evaluationId).getRubriques().stream()
+                .filter(r -> r.getIdRubriqueEvaluation().equals(rubriqueEvaluationId))
+                .flatMap(r -> r.getQuestions().stream())
+                .filter(q -> q.getIdQuestionEvaluation().equals(questionEvaluationId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "QuestionEvaluation", "id", questionEvaluationId));
+    }
+
     @Override
     @Transactional(readOnly = true)
     public StatistiquesEvaluationDTO getStatistiques(Long idEvaluation) {
@@ -711,7 +790,6 @@ public class EvaluationServiceImpl implements EvaluationService {
 
         for (RubriqueEvaluation rubrique : rubriques) {
 
-            // ── Désignation depuis RUBRIQUE.DESIGNATION ──────────────────────
             String designationRubrique = null;
             if (rubrique.getIdRubrique() != null) {
                 try {
@@ -727,12 +805,10 @@ public class EvaluationServiceImpl implements EvaluationService {
             List<QuestionEvaluation> questions = questionEvaluationRepository
                     .findByIdRubriqueEvaluationOrderByOrdreAsc(rubrique.getIdRubriqueEvaluation());
 
-
             List<QuestionStatDTO> questionDTOs = new ArrayList<>();
 
             for (QuestionEvaluation qe : questions) {
 
-                // ── Intitulé + Qualificatif depuis QUESTION ───────────────────
                 String intitule = qe.getIntitule();
                 String minimal  = null;
                 String maximal  = null;
@@ -750,7 +826,6 @@ public class EvaluationServiceImpl implements EvaluationService {
                             intitule = question.getIntitule();
                         }
 
-                        // Qualificatif : d'abord sur QE, sinon sur QUESTION
                         Long idQualificatif = qe.getIdQualificatif();
                         if (idQualificatif == null && question.getIdQualificatif() != null) {
                             try {
@@ -768,7 +843,6 @@ public class EvaluationServiceImpl implements EvaluationService {
                     }
                 }
 
-                // ── Stats depuis la Map ───────────────────────────────────────
                 Object[] row = statsMap.get(qe.getIdQuestionEvaluation());
 
                 QuestionStatDTO dto;
@@ -818,7 +892,6 @@ public class EvaluationServiceImpl implements EvaluationService {
                 .map(Authentification::getEmail)
                 .orElse("");
 
-
         return StatistiquesEvaluationDTO.builder()
                 .idEvaluation(evaluation.getIdEvaluation())
                 .designation(evaluation.getDesignation())
@@ -852,7 +925,6 @@ public class EvaluationServiceImpl implements EvaluationService {
                 .format(new java.util.Date());
         String email = stats.getEmailEnseignant() != null ? stats.getEmailEnseignant() : "";
 
-        // ── Header + Footer sur chaque page ──────────────────────────────────
         writer.setPageEvent(new PdfPageEventHelper() {
 
             private void drawHeader(PdfContentByte cb, Document doc) {
@@ -860,7 +932,6 @@ public class EvaluationServiceImpl implements EvaluationService {
                     float pageWidth = doc.getPageSize().getWidth();
                     float top = doc.getPageSize().getHeight() - 20;
 
-                    // Ligne 1 : M2DOSI | titre | année
                     cb.setFontAndSize(BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.CP1252, false), 11);
                     cb.beginText();
                     cb.showTextAligned(Element.ALIGN_LEFT,  stats.getCodeFormation(), 36, top, 0);
@@ -868,13 +939,11 @@ public class EvaluationServiceImpl implements EvaluationService {
                     cb.showTextAligned(Element.ALIGN_RIGHT, stats.getAnneeUniversitaire(), pageWidth - 36, top, 0);
                     cb.endText();
 
-                    // Ligne séparatrice
                     cb.setLineWidth(0.5f);
                     cb.moveTo(36, top - 6);
                     cb.lineTo(pageWidth - 36, top - 6);
                     cb.stroke();
 
-                    // Ligne 2 : UE | EC | Période (petite police)
                     cb.setFontAndSize(BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, false), 8);
                     cb.beginText();
                     cb.showTextAligned(Element.ALIGN_LEFT,
@@ -914,7 +983,6 @@ public class EvaluationServiceImpl implements EvaluationService {
 
         document.open();
 
-        // ── Métadonnées (première page seulement) ────────────────────────────
         PdfPTable meta = new PdfPTable(2);
         meta.setWidthPercentage(55);
         meta.setHorizontalAlignment(Element.ALIGN_LEFT);
@@ -926,22 +994,19 @@ public class EvaluationServiceImpl implements EvaluationService {
         document.add(meta);
         document.add(Chunk.NEWLINE);
 
-        // ── Rubriques ────────────────────────────────────────────────────────
         for (RubriqueStatDTO rubrique : stats.getRubriques()) {
             PdfPTable table = new PdfPTable(9);
             table.setWidthPercentage(100);
             table.setWidths(new float[]{5f, 2.5f, 1f, 1f, 1f, 1f, 1f, 2.5f, 1.5f});
             table.setSpacingBefore(8f);
-            table.setKeepTogether(true); // ← ne pas couper une rubrique
+            table.setKeepTogether(true);
 
-            // Titre rubrique
             PdfPCell rubCell = new PdfPCell(new Phrase(rubrique.getDesignation(), bold));
             rubCell.setColspan(9);
             rubCell.setBackgroundColor(new BaseColor(170, 170, 170));
             rubCell.setPadding(4);
             table.addCell(rubCell);
 
-            // Sous-header
             table.addCell(makeHeaderCell("", bold));
             table.addCell(makeHeaderCell("Minimum", small));
             for (String n : new String[]{"1","2","3","4","5"})
@@ -949,7 +1014,6 @@ public class EvaluationServiceImpl implements EvaluationService {
             table.addCell(makeHeaderCell("Maximum", small));
             table.addCell(makeHeaderCell("Moyen", small));
 
-            // Questions
             for (QuestionStatDTO q : rubrique.getQuestions()) {
                 table.addCell(makeCell(q.getIntitule(), normal, Element.ALIGN_LEFT));
                 table.addCell(makeCell(q.getMinimal(), normal, Element.ALIGN_LEFT));
@@ -971,7 +1035,6 @@ public class EvaluationServiceImpl implements EvaluationService {
             document.add(table);
         }
 
-        // ── Commentaires ─────────────────────────────────────────────────────
         PdfPTable comm = new PdfPTable(1);
         comm.setWidthPercentage(100);
         comm.setSpacingBefore(10f);
@@ -988,6 +1051,7 @@ public class EvaluationServiceImpl implements EvaluationService {
         document.close();
         return baos.toByteArray();
     }
+
     private void addMetaRow(PdfPTable t, String label, String val, Font bold, Font normal) {
         PdfPCell l = new PdfPCell(new Phrase(label, bold)); l.setPadding(3); t.addCell(l);
         PdfPCell v = new PdfPCell(new Phrase(val, normal)); v.setPadding(3); t.addCell(v);
@@ -1023,5 +1087,4 @@ public class EvaluationServiceImpl implements EvaluationService {
         if (t<2.0/3) return p+(q-p)*(2.0/3-t)*6;
         return p;
     }
-
 }

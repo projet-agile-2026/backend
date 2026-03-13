@@ -18,6 +18,7 @@ import com.evaluation.backend.entity.Authentification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import com.evaluation.backend.dto.Question.QuestionWithQualificatifDTO;
 
 import java.util.List;
 import java.util.Map;
@@ -254,6 +255,34 @@ public class EvaluationController {
         RubriqueEvaluationDTO result = service.updateDesignationRubriqueEvaluation(
                 evaluationId, rubriqueEvaluationId, designation, noEnseignant);
         return ResponseEntity.ok(result);
+    }
+    // ranya
+    @PutMapping("/{evaluationId}/rubriques/{rubriqueEvaluationId}/questions/{questionEvaluationId}/intitule")
+    public ResponseEntity<QuestionWithQualificatifDTO> updateIntituleQuestion(
+            @PathVariable Long evaluationId,
+            @PathVariable Long rubriqueEvaluationId,
+            @PathVariable Long questionEvaluationId,
+            @RequestBody Map<String, String> payload,
+            Authentication authentication) {
+
+        Long noEnseignant = getConnectedEnseignantId(authentication);
+        String intitule = payload.get("intitule");
+        return ResponseEntity.ok(service.updateIntituleQuestionEvaluation(
+                evaluationId, rubriqueEvaluationId, questionEvaluationId, intitule, noEnseignant));
+    }
+
+    @PutMapping("/{evaluationId}/rubriques/{rubriqueEvaluationId}/questions/{questionEvaluationId}/qualificatif")
+    public ResponseEntity<QuestionWithQualificatifDTO> updateQualificatifQuestion(
+            @PathVariable Long evaluationId,
+            @PathVariable Long rubriqueEvaluationId,
+            @PathVariable Long questionEvaluationId,
+            @RequestBody Map<String, Object> payload,
+            Authentication authentication) {
+
+        Long noEnseignant = getConnectedEnseignantId(authentication);
+        Long idQualificatif = Long.valueOf(payload.get("idQualificatif").toString());
+        return ResponseEntity.ok(service.updateQualificatifQuestionEvaluation(
+                evaluationId, rubriqueEvaluationId, questionEvaluationId, idQualificatif, noEnseignant));
     }
 
 }

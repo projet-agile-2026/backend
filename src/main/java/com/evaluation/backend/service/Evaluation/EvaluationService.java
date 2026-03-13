@@ -8,6 +8,7 @@ import com.evaluation.backend.dto.Evaluation.EvaluationResponseDTO;
 import com.evaluation.backend.dto.Evaluation.*;
 import java.util.List;
 import com.evaluation.backend.dto.Statistiques.StatistiquesEvaluationDTO;
+import com.evaluation.backend.dto.Question.QuestionWithQualificatifDTO;
 
 public interface EvaluationService {
 
@@ -82,5 +83,19 @@ public interface EvaluationService {
             Long evaluationId,
             Long rubriqueEvaluationId,
             String designation,
+            Long noEnseignant);
+    // ranya
+    QuestionWithQualificatifDTO updateIntituleQuestionEvaluation(
+            Long evaluationId,
+            Long rubriqueEvaluationId,
+            Long questionEvaluationId,
+            String intitule,
+            Long noEnseignant);
+
+    QuestionWithQualificatifDTO updateQualificatifQuestionEvaluation(
+            Long evaluationId,
+            Long rubriqueEvaluationId,
+            Long questionEvaluationId,
+            Long idQualificatif,
             Long noEnseignant);
 }
