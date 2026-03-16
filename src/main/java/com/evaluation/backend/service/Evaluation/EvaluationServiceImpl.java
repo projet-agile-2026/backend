@@ -194,6 +194,9 @@ public class EvaluationServiceImpl implements EvaluationService {
                     dto.setQuestions(rubrique.getQuestions());
                 }
             } else {
+
+                dto.setDesignation(re.getDesignation());
+                dto.setType("SPECIFIQUE");
                 // Rubrique composée : récupérer les questions via QuestionEvaluation
                 List<QuestionEvaluation> questionsEval = questionEvaluationRepository
                         .findByIdRubriqueEvaluationOrderByOrdreAsc(re.getIdRubriqueEvaluation());
@@ -690,6 +693,85 @@ public class EvaluationServiceImpl implements EvaluationService {
 
         return mapper.toResponse(eval);
 
+    }
+
+
+    @Override
+    public RubriqueEvaluationDTO addRubriqueSpecifiqueToEvaluation(
+            Long evaluationId,
+            AddRubriqueSpecifiqueRequest request,
+            Long noEnseignant) {
+
+        Evaluation evaluation = repository.findById(evaluationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Evaluation introuvable : id=" + evaluationId));
+
+        if (!evaluation.getNoEnseignant().equals(noEnseignant)) {
+            throw new BusinessException(
+                    "Vous n'avez pas le droit de modifier cette évaluation");
+        }
+
+        Integer ordre = request.getOrdre();
+        if (ordre == null) {
+            Integer maxOrdre = rubriqueEvaluationRepository
+                    .findMaxOrdreByEvaluation(evaluationId);
+            ordre = maxOrdre == null ? 1 : maxOrdre + 1;
+        }
+
+        // idRubrique = null → rubrique spécifique à cette évaluation
+        RubriqueEvaluation re = RubriqueEvaluation.builder()
+                .idEvaluation(evaluationId)
+                .idRubrique(null)
+                .ordre(ordre)
+                .designation(request.getDesignation())
+                .build();
+
+        RubriqueEvaluation saved = rubriqueEvaluationRepository.save(re);
+
+        return RubriqueEvaluationDTO.builder()
+                .idRubriqueEvaluation(saved.getIdRubriqueEvaluation())
+                .idEvaluation(saved.getIdEvaluation())
+                .idRubrique(null)
+                .ordre(saved.getOrdre())
+                .designation(saved.getDesignation())
+                .type("SPECIFIQUE")
+                .questions(new ArrayList<>())
+                .build();
+    }
+
+
+    @Override
+    public RubriqueEvaluationDTO updateRubriqueSpecifique(
+            Long evaluationId,
+            Long rubriqueEvaluationId,
+            UpdateRubriqueSpecifiqueRequest request,
+            Long noEnseignant) {
+
+        Evaluation evaluation = repository.findById(evaluationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Evaluation introuvable : id=" + evaluationId));
+
+        if (!evaluation.getNoEnseignant().equals(noEnseignant)) {
+            throw new BusinessException(
+                    "Vous n'avez pas le droit de modifier cette évaluation");
+        }
+
+        RubriqueEvaluation re = rubriqueEvaluationRepository.findById(rubriqueEvaluationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "RubriqueEvaluation introuvable : id=" + rubriqueEvaluationId));
+
+        re.setDesignation(request.getDesignation());
+        RubriqueEvaluation saved = rubriqueEvaluationRepository.save(re);
+
+        return RubriqueEvaluationDTO.builder()
+                .idRubriqueEvaluation(saved.getIdRubriqueEvaluation())
+                .idEvaluation(saved.getIdEvaluation())
+                .idRubrique(null)
+                .ordre(saved.getOrdre())
+                .designation(saved.getDesignation())
+                .type("SPECIFIQUE")
+                .questions(new ArrayList<>())
+                .build();
     }
 
 }

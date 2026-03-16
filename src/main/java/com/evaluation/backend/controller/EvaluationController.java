@@ -6,6 +6,7 @@ import com.evaluation.backend.dto.Droit.DroitTousRequestDTO;
 import com.evaluation.backend.dto.Evaluation.EvaluationRequestDTO;
 import com.evaluation.backend.dto.Evaluation.EvaluationResponseDTO;
 import com.evaluation.backend.repository.AuthentificationRepository;
+import com.evaluation.backend.service.Evaluation.EvaluationPdfService;
 import com.evaluation.backend.service.Evaluation.EvaluationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,8 @@ public class EvaluationController {
 
     private final EvaluationService service;
     private final AuthentificationRepository authentificationRepository;
+
+    private final EvaluationPdfService evaluationPdfService;
 
 
     @GetMapping
@@ -226,5 +229,44 @@ public class EvaluationController {
 
         String etat = payload.get("etat");
         return service.updateEtat(id, etat);
+    }
+
+
+    @PostMapping("/{id}/rubriques/specifique")
+    public ResponseEntity<RubriqueEvaluationDTO> addRubriqueSpecifique(
+            @PathVariable Long id,
+            @Valid @RequestBody AddRubriqueSpecifiqueRequest request,
+            Authentication authentication) {
+
+        Long noEnseignant = getConnectedEnseignantId(authentication);
+        RubriqueEvaluationDTO result = service.addRubriqueSpecifiqueToEvaluation(
+                id, request, noEnseignant);
+        return ResponseEntity.status(HttpStatus.CREATED).body(result);
+    }
+
+
+
+    @PutMapping("/{id}/rubriques/{rubriqueEvaluationId}/specifique")
+    public ResponseEntity<RubriqueEvaluationDTO> updateRubriqueSpecifique(
+            @PathVariable Long id,
+            @PathVariable Long rubriqueEvaluationId,
+            @Valid @RequestBody UpdateRubriqueSpecifiqueRequest request,
+            Authentication authentication) {
+
+        Long noEnseignant = getConnectedEnseignantId(authentication);
+        RubriqueEvaluationDTO result = service.updateRubriqueSpecifique(
+                id, rubriqueEvaluationId, request, noEnseignant);
+        return ResponseEntity.ok(result);
+    }
+
+
+
+    @GetMapping(value = "/{id}/pdf", produces = "application/pdf")
+    public ResponseEntity<byte[]> generatePdf(@PathVariable Long id) {
+        EvaluationWithRubriquesDTO evaluation = service.getByIdWithRubriques(id);
+        byte[] pdf = evaluationPdfService.generateEvaluationPdf(evaluation);
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=\"evaluation-" + id + ".pdf\"")
+                .body(pdf);
     }
 }

@@ -68,4 +68,19 @@ public interface EvaluationService {
     //Changer l'etat d'evaluation - Achraf EL AIDI IDRISSI
     EvaluationResponseDTO updateEtat(Long evaluationId, String etat);
 
+
+    RubriqueEvaluationDTO addRubriqueSpecifiqueToEvaluation(
+            Long evaluationId,
+            AddRubriqueSpecifiqueRequest request,
+            Long noEnseignant
+    );
+
+
+    RubriqueEvaluationDTO updateRubriqueSpecifique(
+            Long evaluationId,
+            Long rubriqueEvaluationId,
+            UpdateRubriqueSpecifiqueRequest request,
+            Long noEnseignant
+    );
+
 }
