@@ -285,4 +285,5 @@ public class EvaluationController {
                 evaluationId, rubriqueEvaluationId, questionEvaluationId, idQualificatif, noEnseignant));
     }
 
+
 }

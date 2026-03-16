@@ -395,6 +395,7 @@ public class EvaluationServiceImpl implements EvaluationService {
         QuestionEvaluation questionEvaluation = QuestionEvaluation.builder()
                 .idRubriqueEvaluation(rubriqueEvaluationId)
                 .idQuestion(request.getIdQuestion())
+                .idQualificatif(request.getIdQualificatif())
                 .ordre(ordre)
                 .build();
 
@@ -731,26 +732,42 @@ public class EvaluationServiceImpl implements EvaluationService {
                         "QuestionEvaluation", "id", questionEvaluationId));
     }
 
+
     // ranya
     @Override
     public QuestionWithQualificatifDTO updateQualificatifQuestionEvaluation(
             Long evaluationId, Long rubriqueEvaluationId,
             Long questionEvaluationId, Long idQualificatif, Long noEnseignant) {
 
+        System.out.println("=== updateQualificatif appelé");
+        System.out.println("=== evaluationId: " + evaluationId);
+        System.out.println("=== noEnseignant param: " + noEnseignant);
+
         Evaluation evaluation = repository.findById(evaluationId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Evaluation introuvable : id=" + evaluationId));
+
+        System.out.println("=== evaluation.noEnseignant: " + evaluation.getNoEnseignant());
+        System.out.println("=== equals: " + evaluation.getNoEnseignant().equals(noEnseignant));
+
         if (!evaluation.getNoEnseignant().equals(noEnseignant))
             throw new BusinessException("Vous n'avez pas le droit de modifier cette évaluation");
 
         QuestionEvaluation qe = questionEvaluationRepository.findById(questionEvaluationId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "QuestionEvaluation introuvable : id=" + questionEvaluationId));
+
+        System.out.println("=== qe.idRubriqueEvaluation: " + qe.getIdRubriqueEvaluation());
+        System.out.println("=== rubriqueEvaluationId param: " + rubriqueEvaluationId);
+        System.out.println("=== rubrique equals: " + qe.getIdRubriqueEvaluation().equals(rubriqueEvaluationId));
+
         if (!qe.getIdRubriqueEvaluation().equals(rubriqueEvaluationId))
             throw new BusinessException("Cette question n'appartient pas à cette rubrique");
 
-        qe.setIdQualificatif(idQualificatif);
-        questionEvaluationRepository.save(qe);
+        //qe.setIdQualificatif(idQualificatif);
+        //questionEvaluationRepository.save(qe);
+        questionEvaluationRepository.updateQualificatifOnly(questionEvaluationId, idQualificatif);
+
         log.info("Updated qualificatif of question evaluation {} to id={}", questionEvaluationId, idQualificatif);
 
         return getByIdWithRubriques(evaluationId).getRubriques().stream()
@@ -761,7 +778,6 @@ public class EvaluationServiceImpl implements EvaluationService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "QuestionEvaluation", "id", questionEvaluationId));
     }
-
     @Override
     @Transactional(readOnly = true)
     public StatistiquesEvaluationDTO getStatistiques(Long idEvaluation) {
