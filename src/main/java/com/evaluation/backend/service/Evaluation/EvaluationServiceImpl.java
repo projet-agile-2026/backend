@@ -4,6 +4,7 @@ import com.evaluation.backend.dto.Droit.DroitRequestDTO;
 import com.evaluation.backend.dto.Droit.DroitResponseDTO;
 import com.evaluation.backend.dto.Droit.DroitTousRequestDTO;
 import com.evaluation.backend.dto.Evaluation.*;
+import com.evaluation.backend.dto.Questionnaire.CreateEvaluationFromQuestionnaireRequest;
 import com.evaluation.backend.entity.*;
 import com.evaluation.backend.exception.BusinessException;
 import com.evaluation.backend.exception.ResourceNotFoundException;
@@ -21,19 +22,23 @@ import com.evaluation.backend.dto.Rubrique.RubriqueDTO;
 import com.evaluation.backend.exception.DuplicateResourceException;
 import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
+import com.evaluation.backend.entity.Question;
+import com.evaluation.backend.dto.Statistiques.QuestionStatDTO;
+import com.evaluation.backend.dto.Statistiques.RubriqueStatDTO;
+import com.evaluation.backend.dto.Statistiques.StatistiquesEvaluationDTO;
+import java.util.HashMap;
+import java.util.Map;
+import com.evaluation.backend.repository.ReponseQuestionRepository;
+import com.evaluation.backend.repository.QualificatifRepository;
 
 import com.evaluation.backend.repository.PromotionRepository;
-
-
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import com.evaluation.backend.repository.AuthentificationRepository;
-
-
-
-
-
+import com.itextpdf.text.*;
+import com.itextpdf.text.pdf.*;
+import java.io.ByteArrayOutputStream;
 
 import java.util.List;
 import java.util.Optional;
@@ -54,13 +59,21 @@ public class EvaluationServiceImpl implements EvaluationService {
     private final RubriqueService rubriqueService;
     private final QuestionService questionService;
 
-
     private final AuthentificationRepository authentificationRepository;
     private final DroitRepository DroitRepository;
     private final DroitMapper droitMapper;
     private final EnseignantRepository EnseignantRepository;
 
     private final PromotionRepository promotionRepository;
+
+    private final ReponseQuestionRepository reponseQuestionRepository;
+    private final QualificatifRepository    qualificatifRepository;
+    private final QuestionRepository questionRepository;
+
+    private final QuestionnaireRepository questionnaireRepository;
+    private final RubriqueQuestionnaireRepository rubriqueQuestionnaireRepository;
+    private final QuestionQuestionnaireRepository questionQuestionnaireRepository;
+
 
 
 
@@ -94,8 +107,17 @@ public class EvaluationServiceImpl implements EvaluationService {
         validateEtat(dto.getEtat());
 
         Evaluation e = mapper.toEntity(dto);
-
         e.setNoEnseignant(noEnseignant);
+
+        Short maxNoEvaluation = repository.findMaxNoEvaluation(
+                dto.getAnneeUniversitaire(),
+                noEnseignant,
+                dto.getCodeFormation(),
+                dto.getCodeUe()
+        );
+
+        short nextNoEvaluation = (short) (maxNoEvaluation + 1);
+        e.setNoEvaluation(nextNoEvaluation);
 
         Evaluation saved = repository.save(e);
 
@@ -133,7 +155,6 @@ public class EvaluationServiceImpl implements EvaluationService {
         }
     }
 
-
     @Override
     public List<String> getFormations() {
         return formationRepository.findAllCodeFormations();
@@ -149,7 +170,6 @@ public class EvaluationServiceImpl implements EvaluationService {
         return elementConstitutifRepository.findDistinctEcsByFormationAndUe(codeFormation, codeUe);
     }
 
-
     @Override
     @Transactional(readOnly = true)
     public EvaluationWithRubriquesDTO getByIdWithRubriques(Long id) {
@@ -162,17 +182,23 @@ public class EvaluationServiceImpl implements EvaluationService {
         List<RubriqueEvaluationDTO> rubriqueDTOs = new ArrayList<>();
 
         for (RubriqueEvaluation re : rubriquesEvaluation) {
+
+            // ← MODIFIÉ : on passe designation(re.getDesignation()) dans le builder
             RubriqueEvaluationDTO dto = RubriqueEvaluationDTO.builder()
                     .idRubriqueEvaluation(re.getIdRubriqueEvaluation())
                     .idEvaluation(re.getIdEvaluation())
                     .idRubrique(re.getIdRubrique())
                     .ordre(re.getOrdre())
+                    .designation(re.getDesignation())
                     .build();
 
             // Si c'est une rubrique standard ou personnelle (pas composée)
             if (re.getIdRubrique() != null) {
                 RubriqueDTO rubrique = rubriqueService.getRubriqueById(re.getIdRubrique());
-                dto.setDesignation(rubrique.getDesignation());
+
+                // ← MODIFIÉ : on utilise la designation de RubriqueEvaluation si elle existe,
+                //             sinon on tombe back sur celle de la rubrique source
+                dto.setDesignation(re.getDesignation() != null ? re.getDesignation() : rubrique.getDesignation());
                 dto.setType(rubrique.getType());
 
                 // Récupérer les questions de QUESTION_EVALUATION
@@ -180,17 +206,25 @@ public class EvaluationServiceImpl implements EvaluationService {
                         .findByIdRubriqueEvaluationOrderByOrdreAsc(re.getIdRubriqueEvaluation());
 
                 if (!questionsEval.isEmpty()) {
-                    // Si des questions spécifiques à l'évaluation existent, les utiliser
                     List<QuestionWithQualificatifDTO> questions = new ArrayList<>();
                     for (QuestionEvaluation qe : questionsEval) {
                         QuestionWithQualificatifDTO q = questionService.getQuestionWithQualificatifById(qe.getIdQuestion());
-                        q.setIdQuestionEvaluation(qe.getIdQuestionEvaluation());
+                        q.setIdQuestionQuestionnaire(qe.getIdQuestionEvaluation());
                         q.setOrdre(qe.getOrdre());
+                        // ranya - conserver l'intitulé personnalisé
+                        q.setIntitule(qe.getIntitule() != null ? qe.getIntitule() : q.getIntitule());
+                        // ranya - conserver le qualificatif personnalisé
+                        if (qe.getIdQualificatif() != null) {
+                            qualificatifRepository.findById(qe.getIdQualificatif()).ifPresent(qual -> {
+                                q.setIdQualificatif(qual.getIdQualificatif());
+                                q.setMaximal(qual.getMaximal());
+                                q.setMinimal(qual.getMinimal());
+                            });
+                        }
                         questions.add(q);
                     }
                     dto.setQuestions(questions);
                 } else {
-                    // Sinon, utiliser les questions par défaut de la rubrique
                     dto.setQuestions(rubrique.getQuestions());
                 }
             } else {
@@ -205,7 +239,18 @@ public class EvaluationServiceImpl implements EvaluationService {
                 for (QuestionEvaluation qe : questionsEval) {
                     QuestionWithQualificatifDTO q = questionService.getQuestionWithQualificatifById(qe.getIdQuestion());
                     q.setOrdre(qe.getOrdre());
-                    q.setIdQuestionEvaluation(qe.getIdQuestionEvaluation());
+                    q.setIdQuestionQuestionnaire(qe.getIdQuestionEvaluation());
+                    q.setIdQuestionQuestionnaire(qe.getIdQuestionEvaluation());
+                    // ranya - conserver l'intitulé personnalisé
+                    q.setIntitule(qe.getIntitule() != null ? qe.getIntitule() : q.getIntitule());
+                    // ranya - conserver le qualificatif personnalisé
+                    if (qe.getIdQualificatif() != null) {
+                        qualificatifRepository.findById(qe.getIdQualificatif()).ifPresent(qual -> {
+                            q.setIdQualificatif(qual.getIdQualificatif());
+                            q.setMaximal(qual.getMaximal());
+                            q.setMinimal(qual.getMinimal());
+                        });
+                    }
                     questions.add(q);
                 }
                 dto.setQuestions(questions);
@@ -231,12 +276,10 @@ public class EvaluationServiceImpl implements EvaluationService {
                 .build();
     }
 
-
     @Override
     public RubriqueEvaluationDTO addRubriqueToEvaluation(Long evaluationId, AddRubriqueToEvaluationRequest request, Long noEnseignant) {
         log.debug("Adding rubrique {} to evaluation {}", request.getIdRubrique(), evaluationId);
 
-        // Vérifier que l'évaluation existe et appartient à l'enseignant
         Evaluation evaluation = repository.findById(evaluationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Evaluation introuvable : id=" + evaluationId));
 
@@ -244,16 +287,13 @@ public class EvaluationServiceImpl implements EvaluationService {
             throw new BusinessException("Vous n'avez pas le droit de modifier cette évaluation");
         }
 
-        // Vérifier que la rubrique existe
         RubriqueDTO rubriqueDTO = rubriqueService.getRubriqueById(request.getIdRubrique());
 
-        // Vérifier qu'elle n'est pas déjà dans l'évaluation
         if (rubriqueEvaluationRepository.existsByIdEvaluationAndIdRubrique(evaluationId, request.getIdRubrique())) {
             throw new DuplicateResourceException("RubriqueEvaluation", "evaluation and rubrique",
                     evaluationId + " - " + request.getIdRubrique());
         }
 
-        //  Auto-incrémenter l'ordre si non fourni
         Integer ordre = request.getOrdre();
         if (ordre == null) {
             Integer maxOrdre = rubriqueEvaluationRepository.findMaxOrdreByEvaluation(evaluationId);
@@ -268,7 +308,7 @@ public class EvaluationServiceImpl implements EvaluationService {
                 .build();
 
         RubriqueEvaluation saved = rubriqueEvaluationRepository.save(rubriqueEvaluation);
-        //added to handle last night bug
+
         List<QuestionWithQualificatifDTO> questionsRubrique = rubriqueDTO.getQuestions();
         if (questionsRubrique != null && !questionsRubrique.isEmpty()) {
             int ordreQuestion = 1;
@@ -285,7 +325,6 @@ public class EvaluationServiceImpl implements EvaluationService {
         }
         log.info("Added rubrique {} to evaluation {} with ordre {}", request.getIdRubrique(), evaluationId, ordre);
 
-        // Retourner le DTO
         return RubriqueEvaluationDTO.builder()
                 .idRubriqueEvaluation(saved.getIdRubriqueEvaluation())
                 .idEvaluation(saved.getIdEvaluation())
@@ -297,13 +336,10 @@ public class EvaluationServiceImpl implements EvaluationService {
                 .build();
     }
 
-
-
     @Override
     public void removeRubriqueFromEvaluation(Long evaluationId, Long rubriqueEvaluationId, Long noEnseignant) {
         log.debug("Removing rubrique evaluation {} from evaluation {}", rubriqueEvaluationId, evaluationId);
 
-        // Vérifier que l'évaluation existe et appartient à l'enseignant
         Evaluation evaluation = repository.findById(evaluationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Evaluation introuvable : id=" + evaluationId));
 
@@ -319,7 +355,6 @@ public class EvaluationServiceImpl implements EvaluationService {
     public void reorderRubriquesInEvaluation(Long evaluationId, ReorderRubriquesInEvaluationRequest request, Long noEnseignant) {
         log.debug("Reordering rubriques in evaluation {}", evaluationId);
 
-        // Vérifier que l'évaluation existe et appartient à l'enseignant
         Evaluation evaluation = repository.findById(evaluationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Evaluation introuvable : id=" + evaluationId));
 
@@ -350,7 +385,6 @@ public class EvaluationServiceImpl implements EvaluationService {
                                                                  AddQuestionToRubriqueEvaluationRequest request, Long noEnseignant) {
         log.debug("Adding question {} to rubrique evaluation {}", request.getIdQuestion(), rubriqueEvaluationId);
 
-        // Vérifier que l'évaluation existe et appartient à l'enseignant
         Evaluation evaluation = repository.findById(evaluationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Evaluation introuvable : id=" + evaluationId));
 
@@ -358,7 +392,6 @@ public class EvaluationServiceImpl implements EvaluationService {
             throw new BusinessException("Vous n'avez pas le droit de modifier cette évaluation");
         }
 
-        // Vérifier que la rubrique evaluation existe
         RubriqueEvaluation rubriqueEvaluation = rubriqueEvaluationRepository.findById(rubriqueEvaluationId)
                 .orElseThrow(() -> new ResourceNotFoundException("RubriqueEvaluation", "id", rubriqueEvaluationId));
 
@@ -366,19 +399,16 @@ public class EvaluationServiceImpl implements EvaluationService {
             throw new BusinessException("RubriqueEvaluation does not belong to this evaluation");
         }
 
-        // Vérifier que la question existe
         if (!questionService.existsById(request.getIdQuestion())) {
             throw new ResourceNotFoundException("Question", "idQuestion", request.getIdQuestion());
         }
 
-        // Vérifier que la question n'est pas déjà dans cette rubrique
         if (questionEvaluationRepository.existsByIdRubriqueEvaluationAndIdQuestion(
                 rubriqueEvaluationId, request.getIdQuestion())) {
             throw new DuplicateResourceException("QuestionEvaluation", "rubrique and question",
                     rubriqueEvaluationId + " - " + request.getIdQuestion());
         }
 
-        //  Auto-incrémenter l'ordre si non fourni
         Integer ordre = request.getOrdre();
         if (ordre == null) {
             Integer maxOrdre = questionEvaluationRepository.findMaxOrdreByRubriqueEvaluation(rubriqueEvaluationId);
@@ -388,13 +418,13 @@ public class EvaluationServiceImpl implements EvaluationService {
         QuestionEvaluation questionEvaluation = QuestionEvaluation.builder()
                 .idRubriqueEvaluation(rubriqueEvaluationId)
                 .idQuestion(request.getIdQuestion())
+                .idQualificatif(request.getIdQualificatif())
                 .ordre(ordre)
                 .build();
 
         questionEvaluationRepository.save(questionEvaluation);
         log.info("Added question {} to rubrique evaluation {}", request.getIdQuestion(), rubriqueEvaluationId);
 
-        //  Retourner le DTO complet avec toutes les questions
         EvaluationWithRubriquesDTO evalWithRub = getByIdWithRubriques(evaluationId);
         return evalWithRub.getRubriques().stream()
                 .filter(r -> r.getIdRubriqueEvaluation().equals(rubriqueEvaluationId))
@@ -407,7 +437,6 @@ public class EvaluationServiceImpl implements EvaluationService {
                                                      Long questionEvaluationId, Long noEnseignant) {
         log.debug("Removing question evaluation {} from rubrique evaluation {}", questionEvaluationId, rubriqueEvaluationId);
 
-        // Vérifier que l'évaluation existe et appartient à l'enseignant
         Evaluation evaluation = repository.findById(evaluationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Evaluation introuvable : id=" + evaluationId));
 
@@ -424,7 +453,6 @@ public class EvaluationServiceImpl implements EvaluationService {
                                                      ReorderQuestionsInRubriqueEvaluationRequest request, Long noEnseignant) {
         log.debug("Reordering questions in rubrique evaluation {}", rubriqueEvaluationId);
 
-        // Vérifier que l'évaluation existe et appartient à l'enseignant
         Evaluation evaluation = repository.findById(evaluationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Evaluation introuvable : id=" + evaluationId));
 
@@ -449,16 +477,13 @@ public class EvaluationServiceImpl implements EvaluationService {
         log.info("Reordered {} questions in rubrique evaluation {}", request.getQuestionOrders().size(), rubriqueEvaluationId);
     }
 
-
-
-
     private Long currentNoEnseignant() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || authentication.getName() == null) {
             throw new BusinessException("Utilisateur non authentifié");
         }
 
-        String email = authentication.getName(); // subject JWT = email
+        String email = authentication.getName();
         Authentification auth = authentificationRepository.findByEmail(email)
                 .orElseThrow(() -> new BusinessException("Utilisateur non trouvé : " + email));
 
@@ -480,8 +505,6 @@ public class EvaluationServiceImpl implements EvaluationService {
         return eval;
     }
 
-    // ---------------- US 6.10 : lister évaluations partagées ----------------
-
     @Override
     @Transactional(readOnly = true)
     public List<EvaluationResponseDTO> listEvaluationsPartagees() {
@@ -496,7 +519,6 @@ public class EvaluationServiceImpl implements EvaluationService {
                 )
                 .map(d -> repository.findById(d.getIdEvaluation()).orElse(null))
                 .filter(e -> e != null)
-                // optionnel : exclure ses propres évaluations si tu veux
                 .filter(e -> e.getNoEnseignant() == null || !e.getNoEnseignant().equals(noEnseignant))
                 .map(mapper::toResponse)
                 .toList();
@@ -528,6 +550,7 @@ public class EvaluationServiceImpl implements EvaluationService {
         copy.setAnneeUniversitaire(source.getAnneeUniversitaire());
         copy.setCodeUe(source.getCodeUe());
         copy.setCodeEc(source.getCodeEc());
+
         Short maxNoEval = repository.findMaxNoEvaluation(
                 source.getAnneeUniversitaire(),
                 noEnseignant,
@@ -575,8 +598,6 @@ public class EvaluationServiceImpl implements EvaluationService {
 
     }
 
-
-
     @Override
     @Transactional(readOnly = true)
     public List<DroitResponseDTO> listDroits(Long idEvaluation) {
@@ -608,7 +629,6 @@ public class EvaluationServiceImpl implements EvaluationService {
         droitMapper.apply(droit, dto);
 
         return droitMapper.toResponse(DroitRepository.save(droit));
-
     }
 
     @Override
@@ -631,14 +651,14 @@ public class EvaluationServiceImpl implements EvaluationService {
         Long owner = eval.getNoEnseignant();
 
         boolean dup = Boolean.TRUE.equals(dto.getDuplication());
-        boolean cons = dup || Boolean.TRUE.equals(dto.getConsultation()); // duplication => consultation
+        boolean cons = dup || Boolean.TRUE.equals(dto.getConsultation());
 
         List<Integer> allIds = EnseignantRepository.findAllIds();
 
         for (Integer idEns : allIds) {
             Long cible = Long.valueOf(idEns);
 
-            if (cible.equals(owner)) continue; // pas à soi-même
+            if (cible.equals(owner)) continue;
 
             Droit droit = DroitRepository.findByIdEvaluationAndNoEnseignant(idEvaluation, cible)
                     .orElseGet(() -> {
@@ -656,12 +676,11 @@ public class EvaluationServiceImpl implements EvaluationService {
 
         return DroitResponseDTO.builder()
                 .idEvaluation(idEvaluation)
-                .noEnseignant(-1L) // convention "tous"
+                .noEnseignant(-1L)
                 .consultation(cons ? "O" : "N")
                 .duplication(dup ? "O" : "N")
                 .build();
     }
-
 
     @Override
     @Transactional(readOnly = true)
@@ -669,32 +688,101 @@ public class EvaluationServiceImpl implements EvaluationService {
         return promotionRepository.findAnneesUniversitairesByCodeFormation(codeFormation);
     }
 
-
-    //Changer l'etat d'evaluation - Achraf EL AIDI IDRISSI
+    // Changer l'etat d'evaluation - Achraf EL AIDI IDRISSI
     @Override
     public EvaluationResponseDTO updateEtat(Long evaluationId, String etat) {
-        Evaluation eval = repository.findById(evaluationId).orElseThrow(() -> new ResourceNotFoundException("Evaluation introuvable : id=" + evaluationId));
-
+        Evaluation eval = repository.findById(evaluationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Evaluation introuvable : id=" + evaluationId));
 
         System.out.println("Etat actuel = " + eval.getEtat());
         System.out.println("Etat demandé = " + etat);
 
-        if(eval.getEtat().equals("ELA") && etat.equals("DIS")) {
+        if (eval.getEtat().equals("ELA") && etat.equals("DIS")) {
             eval.setEtat("DIS");
-        }
-        else if(eval.getEtat().equals("DIS") && etat.equals("CLO")) {
+        } else if (eval.getEtat().equals("DIS") && etat.equals("CLO")) {
             eval.setEtat("CLO");
-        }
-        else {
+        } else {
             throw new RuntimeException("Transition d'état non autorisée");
         }
 
         repository.save(eval);
-
         return mapper.toResponse(eval);
-
     }
 
+    // ranya
+    @Override
+    public RubriqueEvaluationDTO updateDesignationRubriqueEvaluation(
+            Long evaluationId,
+            Long rubriqueEvaluationId,
+            String designation,
+            Long noEnseignant) {
+
+        log.debug("Updating designation of rubrique evaluation {} in evaluation {}",
+                rubriqueEvaluationId, evaluationId);
+
+        Evaluation evaluation = repository.findById(evaluationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Evaluation introuvable : id=" + evaluationId));
+
+        if (!evaluation.getNoEnseignant().equals(noEnseignant)) {
+            throw new BusinessException(
+                    "Vous n'avez pas le droit de modifier cette évaluation");
+        }
+
+        RubriqueEvaluation rubriqueEvaluation = rubriqueEvaluationRepository
+                .findById(rubriqueEvaluationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "RubriqueEvaluation introuvable : id=" + rubriqueEvaluationId));
+
+        if (!rubriqueEvaluation.getIdEvaluation().equals(evaluationId)) {
+            throw new BusinessException(
+                    "Cette rubrique n'appartient pas à cette évaluation");
+        }
+
+        rubriqueEvaluation.setDesignation(designation);
+        rubriqueEvaluationRepository.save(rubriqueEvaluation);
+
+        log.info("Updated designation of rubrique evaluation {} to '{}'",
+                rubriqueEvaluationId, designation);
+
+        EvaluationWithRubriquesDTO evalWithRub = getByIdWithRubriques(evaluationId);
+        return evalWithRub.getRubriques().stream()
+                .filter(r -> r.getIdRubriqueEvaluation().equals(rubriqueEvaluationId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "RubriqueEvaluation", "id", rubriqueEvaluationId));
+    }
+
+    // ranya
+    @Override
+    public QuestionWithQualificatifDTO updateIntituleQuestionEvaluation(
+            Long evaluationId, Long rubriqueEvaluationId,
+            Long questionEvaluationId, String intitule, Long noEnseignant) {
+
+        Evaluation evaluation = repository.findById(evaluationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Evaluation introuvable : id=" + evaluationId));
+        if (!evaluation.getNoEnseignant().equals(noEnseignant))
+            throw new BusinessException("Vous n'avez pas le droit de modifier cette évaluation");
+
+        QuestionEvaluation qe = questionEvaluationRepository.findById(questionEvaluationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "QuestionEvaluation introuvable : id=" + questionEvaluationId));
+        if (!qe.getIdRubriqueEvaluation().equals(rubriqueEvaluationId))
+            throw new BusinessException("Cette question n'appartient pas à cette rubrique");
+
+        qe.setIntitule(intitule);
+        questionEvaluationRepository.save(qe);
+        log.info("Updated intitule of question evaluation {} to '{}'", questionEvaluationId, intitule);
+
+        return getByIdWithRubriques(evaluationId).getRubriques().stream()
+                .filter(r -> r.getIdRubriqueEvaluation().equals(rubriqueEvaluationId))
+                .flatMap(r -> r.getQuestions().stream())
+                .filter(q -> q.getIdQuestionQuestionnaire().equals(questionEvaluationId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "QuestionEvaluation", "id", questionEvaluationId));
+    }
 
     @Override
     public RubriqueEvaluationDTO addRubriqueSpecifiqueToEvaluation(
@@ -772,6 +860,491 @@ public class EvaluationServiceImpl implements EvaluationService {
                 .type("SPECIFIQUE")
                 .questions(new ArrayList<>())
                 .build();
+    }
+
+
+
+
+    // ranya
+    @Override
+    public QuestionWithQualificatifDTO updateQualificatifQuestionEvaluation(
+            Long evaluationId, Long rubriqueEvaluationId,
+            Long questionEvaluationId, Long idQualificatif, Long noEnseignant) {
+
+        System.out.println("=== updateQualificatif appelé");
+        System.out.println("=== evaluationId: " + evaluationId);
+        System.out.println("=== noEnseignant param: " + noEnseignant);
+
+        Evaluation evaluation = repository.findById(evaluationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Evaluation introuvable : id=" + evaluationId));
+
+        System.out.println("=== evaluation.noEnseignant: " + evaluation.getNoEnseignant());
+        System.out.println("=== equals: " + evaluation.getNoEnseignant().equals(noEnseignant));
+
+        if (!evaluation.getNoEnseignant().equals(noEnseignant))
+            throw new BusinessException("Vous n'avez pas le droit de modifier cette évaluation");
+
+        QuestionEvaluation qe = questionEvaluationRepository.findById(questionEvaluationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "QuestionEvaluation introuvable : id=" + questionEvaluationId));
+
+        System.out.println("=== qe.idRubriqueEvaluation: " + qe.getIdRubriqueEvaluation());
+        System.out.println("=== rubriqueEvaluationId param: " + rubriqueEvaluationId);
+        System.out.println("=== rubrique equals: " + qe.getIdRubriqueEvaluation().equals(rubriqueEvaluationId));
+
+        if (!qe.getIdRubriqueEvaluation().equals(rubriqueEvaluationId))
+            throw new BusinessException("Cette question n'appartient pas à cette rubrique");
+
+        //qe.setIdQualificatif(idQualificatif);
+        //questionEvaluationRepository.save(qe);
+        questionEvaluationRepository.updateQualificatifOnly(questionEvaluationId, idQualificatif);
+
+        log.info("Updated qualificatif of question evaluation {} to id={}", questionEvaluationId, idQualificatif);
+
+        return getByIdWithRubriques(evaluationId).getRubriques().stream()
+                .filter(r -> r.getIdRubriqueEvaluation().equals(rubriqueEvaluationId))
+                .flatMap(r -> r.getQuestions().stream())
+                .filter(q -> q.getIdQuestionQuestionnaire().equals(questionEvaluationId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "QuestionEvaluation", "id", questionEvaluationId));
+    }
+    @Override
+    @Transactional(readOnly = true)
+    public StatistiquesEvaluationDTO getStatistiques(Long idEvaluation) {
+
+        Evaluation evaluation = repository.findById(idEvaluation)
+                .orElseThrow(() -> new ResourceNotFoundException("Evaluation introuvable : id=" + idEvaluation));
+
+        if (!"CLO".equals(evaluation.getEtat())) {
+            throw new BusinessException("Les statistiques sont disponibles uniquement pour une évaluation clôturée.");
+        }
+
+        Long totalRepondants = reponseQuestionRepository.countRepondantsByEvaluation(idEvaluation);
+
+        List<RubriqueEvaluation> rubriques = rubriqueEvaluationRepository
+                .findByIdEvaluationOrderByOrdreAsc(idEvaluation);
+
+        List<Object[]> rawStats = reponseQuestionRepository.findRawStatsByEvaluation(idEvaluation);
+
+        Map<Long, Object[]> statsMap = new HashMap<>();
+        for (Object[] row : rawStats) {
+            Long idQE = ((Number) row[0]).longValue();
+            statsMap.put(idQE, row);
+        }
+
+        List<RubriqueStatDTO> rubriqueDTOs = new ArrayList<>();
+
+        for (RubriqueEvaluation rubrique : rubriques) {
+
+            // ── Désignation depuis RUBRIQUE.DESIGNATION ──────────────────────
+            String designationRubrique = null;
+            if (rubrique.getIdRubrique() != null) {
+                try {
+                    designationRubrique = rubriqueService
+                            .getRubriqueById(rubrique.getIdRubrique())
+                            .getDesignation();
+                } catch (Exception ignored) {}
+            }
+            if (designationRubrique == null) {
+                designationRubrique = rubrique.getDesignation();
+            }
+
+            List<QuestionEvaluation> questions = questionEvaluationRepository
+                    .findByIdRubriqueEvaluationOrderByOrdreAsc(rubrique.getIdRubriqueEvaluation());
+
+
+            List<QuestionStatDTO> questionDTOs = new ArrayList<>();
+
+            for (QuestionEvaluation qe : questions) {
+
+                // ── Intitulé + Qualificatif depuis QUESTION ───────────────────
+                String intitule = qe.getIntitule();
+                String minimal  = null;
+                String maximal  = null;
+
+                if (qe.getIdQuestion() != null) {
+                    questionRepository.findById(qe.getIdQuestion()).ifPresent(question -> {
+                        // stocker dans tableau pour accès depuis lambda
+                    });
+
+                    var questionOpt = questionRepository.findById(qe.getIdQuestion());
+                    if (questionOpt.isPresent()) {
+                        var question = questionOpt.get();
+
+                        if (intitule == null) {
+                            intitule = question.getIntitule();
+                        }
+
+                        // Qualificatif : d'abord sur QE, sinon sur QUESTION
+                        Long idQualificatif = qe.getIdQualificatif();
+                        if (idQualificatif == null && question.getIdQualificatif() != null) {
+                            try {
+                                idQualificatif = Long.valueOf(question.getIdQualificatif());
+                            } catch (NumberFormatException ignored) {}
+                        }
+
+                        if (idQualificatif != null) {
+                            var qualOpt = qualificatifRepository.findById(idQualificatif);
+                            if (qualOpt.isPresent()) {
+                                minimal = qualOpt.get().getMinimal();
+                                maximal = qualOpt.get().getMaximal();
+                            }
+                        }
+                    }
+                }
+
+                // ── Stats depuis la Map ───────────────────────────────────────
+                Object[] row = statsMap.get(qe.getIdQuestionEvaluation());
+
+                QuestionStatDTO dto;
+                if (row != null) {
+                    dto = QuestionStatDTO.builder()
+                            .idQuestionEvaluation(qe.getIdQuestionEvaluation())
+                            .ordre(qe.getOrdre())
+                            .intitule(intitule)
+                            .minimal(minimal)
+                            .maximal(maximal)
+                            .nbRepondants(row[4]  != null ? ((Number) row[4]).longValue()   : 0L)
+                            .moyenne(     row[5]  != null ? ((Number) row[5]).doubleValue() : null)
+                            .minimum(     row[6]  != null ? ((Number) row[6]).longValue()   : null)
+                            .maximum(     row[7]  != null ? ((Number) row[7]).longValue()   : null)
+                            .ecartType(   row[8]  != null ? ((Number) row[8]).doubleValue() : null)
+                            .mediane(     row[9]  != null ? ((Number) row[9]).doubleValue() : null)
+                            .nb1(         row[10] != null ? ((Number) row[10]).longValue()  : 0L)
+                            .nb2(         row[11] != null ? ((Number) row[11]).longValue()  : 0L)
+                            .nb3(         row[12] != null ? ((Number) row[12]).longValue()  : 0L)
+                            .nb4(         row[13] != null ? ((Number) row[13]).longValue()  : 0L)
+                            .nb5(         row[14] != null ? ((Number) row[14]).longValue()  : 0L)
+                            .build();
+                } else {
+                    dto = QuestionStatDTO.builder()
+                            .idQuestionEvaluation(qe.getIdQuestionEvaluation())
+                            .ordre(qe.getOrdre())
+                            .intitule(intitule)
+                            .minimal(minimal)
+                            .maximal(maximal)
+                            .nbRepondants(0L)
+                            .nb1(0L).nb2(0L).nb3(0L).nb4(0L).nb5(0L)
+                            .build();
+                }
+
+                questionDTOs.add(dto);
+            }
+
+            rubriqueDTOs.add(RubriqueStatDTO.builder()
+                    .idRubriqueEvaluation(rubrique.getIdRubriqueEvaluation())
+                    .ordre(rubrique.getOrdre())
+                    .designation(designationRubrique)
+                    .questions(questionDTOs)
+                    .build());
+        }
+        String emailEnseignant = authentificationRepository
+                .findByEnseignantId(evaluation.getNoEnseignant().intValue())
+                .map(Authentification::getEmail)
+                .orElse("");
+
+
+        return StatistiquesEvaluationDTO.builder()
+                .idEvaluation(evaluation.getIdEvaluation())
+                .designation(evaluation.getDesignation())
+                .codeFormation(evaluation.getCodeFormation())
+                .anneeUniversitaire(evaluation.getAnneeUniversitaire())
+                .codeUe(evaluation.getCodeUe())
+                .codeEc(evaluation.getCodeEc())
+                .noEvaluation(evaluation.getNoEvaluation())
+                .etat(evaluation.getEtat())
+                .periode(evaluation.getPeriode())
+                .debutReponse(evaluation.getDebutReponse())
+                .finReponse(evaluation.getFinReponse())
+                .totalRepondants(totalRepondants)
+                .rubriques(rubriqueDTOs)
+                .emailEnseignant(emailEnseignant)
+                .build();
+    }
+
+    public byte[] generateStatistiquesPdf(Long idEvaluation) throws Exception {
+        StatistiquesEvaluationDTO stats = getStatistiques(idEvaluation);
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        Document document = new Document(PageSize.A4, 36, 36, 100, 60);
+        PdfWriter writer = PdfWriter.getInstance(document, baos);
+
+        Font bold = new Font(Font.FontFamily.HELVETICA, 11, Font.BOLD);
+        Font normal = new Font(Font.FontFamily.HELVETICA, 9, Font.NORMAL);
+        Font small = new Font(Font.FontFamily.HELVETICA, 8, Font.NORMAL);
+
+        String today = new java.text.SimpleDateFormat("dd MMMM yyyy", java.util.Locale.FRENCH)
+                .format(new java.util.Date());
+        String email = stats.getEmailEnseignant() != null ? stats.getEmailEnseignant() : "";
+
+        // ── Header + Footer sur chaque page ──────────────────────────────────
+        writer.setPageEvent(new PdfPageEventHelper() {
+
+            private void drawHeader(PdfContentByte cb, Document doc) {
+                try {
+                    float pageWidth = doc.getPageSize().getWidth();
+                    float top = doc.getPageSize().getHeight() - 20;
+
+                    // Ligne 1 : M2DOSI | titre | année
+                    cb.setFontAndSize(BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.CP1252, false), 11);
+                    cb.beginText();
+                    cb.showTextAligned(Element.ALIGN_LEFT,  stats.getCodeFormation(), 36, top, 0);
+                    cb.showTextAligned(Element.ALIGN_CENTER, "Evaluation d'un enseignement", pageWidth / 2, top, 0);
+                    cb.showTextAligned(Element.ALIGN_RIGHT, stats.getAnneeUniversitaire(), pageWidth - 36, top, 0);
+                    cb.endText();
+
+                    // Ligne séparatrice
+                    cb.setLineWidth(0.5f);
+                    cb.moveTo(36, top - 6);
+                    cb.lineTo(pageWidth - 36, top - 6);
+                    cb.stroke();
+
+                    // Ligne 2 : UE | EC | Période (petite police)
+                    cb.setFontAndSize(BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, false), 8);
+                    cb.beginText();
+                    cb.showTextAligned(Element.ALIGN_LEFT,
+                            "UE: " + stats.getCodeUe() + "   EC: " + (stats.getCodeEc() != null ? stats.getCodeEc() : "—") + "   Période: " + (stats.getPeriode() != null ? stats.getPeriode() : "—"),
+                            36, top - 16, 0);
+                    cb.endText();
+
+                } catch (Exception ignored) {}
+            }
+
+            private void drawFooter(PdfContentByte cb, Document doc, int pageNumber) {
+                try {
+                    float pageWidth = doc.getPageSize().getWidth();
+                    float bottom = 20;
+
+                    cb.setLineWidth(0.3f);
+                    cb.moveTo(36, bottom + 10);
+                    cb.lineTo(pageWidth - 36, bottom + 10);
+                    cb.stroke();
+
+                    cb.setFontAndSize(BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, false), 8);
+                    cb.beginText();
+                    cb.showTextAligned(Element.ALIGN_LEFT, email + "  —  " + today, 36, bottom, 0);
+                    cb.showTextAligned(Element.ALIGN_RIGHT, "Page " + pageNumber, pageWidth - 36, bottom, 0);
+                    cb.endText();
+
+                } catch (Exception ignored) {}
+            }
+
+            @Override
+            public void onEndPage(PdfWriter w, Document doc) {
+                PdfContentByte cb = w.getDirectContent();
+                drawHeader(cb, doc);
+                drawFooter(cb, doc, w.getPageNumber());
+            }
+        });
+
+        document.open();
+
+        // ── Métadonnées (première page seulement) ────────────────────────────
+        PdfPTable meta = new PdfPTable(2);
+        meta.setWidthPercentage(55);
+        meta.setHorizontalAlignment(Element.ALIGN_LEFT);
+        meta.setWidths(new float[]{3f, 3f});
+        meta.setSpacingBefore(10f);
+        addMetaRow(meta, "Unité d'Enseignement", stats.getCodeUe(), bold, normal);
+        addMetaRow(meta, "Elément Constitutif", stats.getCodeEc() != null ? stats.getCodeEc() : "—", bold, normal);
+        addMetaRow(meta, "Période", stats.getPeriode() != null ? stats.getPeriode() : "—", bold, normal);
+        document.add(meta);
+        document.add(Chunk.NEWLINE);
+
+        // ── Rubriques ────────────────────────────────────────────────────────
+        for (RubriqueStatDTO rubrique : stats.getRubriques()) {
+            PdfPTable table = new PdfPTable(9);
+            table.setWidthPercentage(100);
+            table.setWidths(new float[]{5f, 2.5f, 1f, 1f, 1f, 1f, 1f, 2.5f, 1.5f});
+            table.setSpacingBefore(8f);
+            table.setKeepTogether(true); // ← ne pas couper une rubrique
+
+            // Titre rubrique
+            PdfPCell rubCell = new PdfPCell(new Phrase(rubrique.getDesignation(), bold));
+            rubCell.setColspan(9);
+            rubCell.setBackgroundColor(new BaseColor(170, 170, 170));
+            rubCell.setPadding(4);
+            table.addCell(rubCell);
+
+            // Sous-header
+            table.addCell(makeHeaderCell("", bold));
+            table.addCell(makeHeaderCell("Minimum", small));
+            for (String n : new String[]{"1","2","3","4","5"})
+                table.addCell(makeHeaderCell(n, bold));
+            table.addCell(makeHeaderCell("Maximum", small));
+            table.addCell(makeHeaderCell("Moyen", small));
+
+            // Questions
+            for (QuestionStatDTO q : rubrique.getQuestions()) {
+                table.addCell(makeCell(q.getIntitule(), normal, Element.ALIGN_LEFT));
+                table.addCell(makeCell(q.getMinimal(), normal, Element.ALIGN_LEFT));
+                table.addCell(makeCell(str(q.getNb1()), normal, Element.ALIGN_CENTER));
+                table.addCell(makeCell(str(q.getNb2()), normal, Element.ALIGN_CENTER));
+                table.addCell(makeCell(str(q.getNb3()), normal, Element.ALIGN_CENTER));
+                table.addCell(makeCell(str(q.getNb4()), normal, Element.ALIGN_CENTER));
+                table.addCell(makeCell(str(q.getNb5()), normal, Element.ALIGN_CENTER));
+                table.addCell(makeCell(q.getMaximal(), normal, Element.ALIGN_LEFT));
+
+                PdfPCell moyCell = new PdfPCell(new Phrase(
+                        q.getMoyenne() != null ? String.format("%.1f", q.getMoyenne()) : "—", bold));
+                moyCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+                moyCell.setPadding(3);
+                if (q.getMoyenne() != null) moyCell.setBackgroundColor(moyenneColor(q.getMoyenne()));
+                table.addCell(moyCell);
+            }
+
+            document.add(table);
+        }
+
+        // ── Commentaires ─────────────────────────────────────────────────────
+        PdfPTable comm = new PdfPTable(1);
+        comm.setWidthPercentage(100);
+        comm.setSpacingBefore(10f);
+        comm.setKeepTogether(true);
+        PdfPCell commHead = new PdfPCell(new Phrase("Commentaires", bold));
+        commHead.setBackgroundColor(new BaseColor(170, 170, 170));
+        commHead.setPadding(4);
+        comm.addCell(commHead);
+        PdfPCell commBody = new PdfPCell(new Phrase(" "));
+        commBody.setMinimumHeight(50f);
+        comm.addCell(commBody);
+        document.add(comm);
+
+        document.close();
+        return baos.toByteArray();
+    }
+
+    private void addMetaRow(PdfPTable t, String label, String val, Font bold, Font normal) {
+        PdfPCell l = new PdfPCell(new Phrase(label, bold)); l.setPadding(3); t.addCell(l);
+        PdfPCell v = new PdfPCell(new Phrase(val, normal)); v.setPadding(3); t.addCell(v);
+    }
+
+    private PdfPCell makeCell(String text, Font font, int align) {
+        PdfPCell c = new PdfPCell(new Phrase(text != null ? text : "—", font));
+        c.setHorizontalAlignment(align); c.setPadding(3); return c;
+    }
+
+    private PdfPCell makeHeaderCell(String text, Font font) {
+        PdfPCell c = new PdfPCell(new Phrase(text, font));
+        c.setBackgroundColor(new BaseColor(210, 210, 210));
+        c.setHorizontalAlignment(Element.ALIGN_CENTER); c.setPadding(3); return c;
+    }
+
+    private String str(Long v) { return v != null ? String.valueOf(v) : "0"; }
+
+    private BaseColor moyenneColor(double m) {
+        double ratio = Math.max(0, Math.min(1, (m - 1) / 4.0));
+        double h = ratio * 120.0 / 360.0, s = 0.75, l = 0.40;
+        double q = l < 0.5 ? l*(1+s) : l+s-l*s, p = 2*l-q;
+        return new BaseColor(
+                (int)(h2rgb(p,q,h+1.0/3)*255),
+                (int)(h2rgb(p,q,h)*255),
+                (int)(h2rgb(p,q,h-1.0/3)*255));
+    }
+
+    private double h2rgb(double p, double q, double t) {
+        if (t<0) t+=1; if (t>1) t-=1;
+        if (t<1.0/6) return p+(q-p)*6*t;
+        if (t<1.0/2) return q;
+        if (t<2.0/3) return p+(q-p)*(2.0/3-t)*6;
+        return p;
+    }
+
+    @Override
+    @Transactional
+    public EvaluationResponseDTO createFromQuestionnaire(
+            CreateEvaluationFromQuestionnaireRequest dto,
+            Long noEnseignant
+    ) {
+
+        Questionnaire questionnaire = questionnaireRepository
+                .findById(dto.getIdQuestionnaire())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Questionnaire introuvable"
+                ));
+
+        Evaluation e = new Evaluation();
+
+        e.setNoEnseignant(noEnseignant);
+        e.setCodeFormation(dto.getCodeFormation());
+        e.setAnneeUniversitaire(dto.getAnneeUniversitaire());
+        e.setCodeUe(dto.getCodeUe());
+        e.setCodeEc(dto.getCodeEc());
+        e.setDesignation(dto.getDesignation());
+        e.setPeriode(dto.getPeriode());
+        e.setEtat("ELA");
+        e.setDebutReponse(dto.getDebutReponse());
+        e.setFinReponse(dto.getFinReponse());
+
+        Short maxNoEvaluation = repository.findMaxNoEvaluation(
+                dto.getAnneeUniversitaire(),
+                noEnseignant,
+                dto.getCodeFormation(),
+                dto.getCodeUe()
+        );
+
+        short nextNoEvaluation = (short) (maxNoEvaluation + 1);
+        e.setNoEvaluation(nextNoEvaluation);
+
+        Evaluation savedEvaluation = repository.save(e);
+
+        copyQuestionnaireStructure(questionnaire, savedEvaluation);
+
+        return mapper.toResponse(savedEvaluation);
+    }
+
+    private void copyQuestionnaireStructure(
+            Questionnaire questionnaire,
+            Evaluation evaluation
+    ) {
+
+        List<RubriqueQuestionnaire> rubriques =
+                rubriqueQuestionnaireRepository
+                        .findByIdQuestionnaireOrderByOrdreAsc(
+                                questionnaire.getIdQuestionnaire()
+                        );
+
+        for (RubriqueQuestionnaire rq : rubriques) {
+
+            RubriqueEvaluation re = new RubriqueEvaluation();
+
+            re.setIdEvaluation(evaluation.getIdEvaluation());
+            re.setIdRubrique(rq.getIdRubrique());
+            re.setDesignation(rq.getDesignation());
+            re.setOrdre(rq.getOrdre());
+
+            RubriqueEvaluation savedRubrique =
+                    rubriqueEvaluationRepository.save(re);
+
+            copyQuestions(rq, savedRubrique);
+        }
+    }
+
+    private void copyQuestions(
+            RubriqueQuestionnaire rq,
+            RubriqueEvaluation re
+    ) {
+
+        List<QuestionQuestionnaire> questions =
+                questionQuestionnaireRepository
+                        .findByIdRubriqueQuestionnaireOrderByOrdreAsc(
+                                rq.getIdRubriqueQuestionnaire()
+                        );
+
+        for (QuestionQuestionnaire qq : questions) {
+
+            QuestionEvaluation qe = new QuestionEvaluation();
+
+            qe.setIdRubriqueEvaluation(re.getIdRubriqueEvaluation());
+            qe.setIdQuestion(qq.getIdQuestion());
+            qe.setIdQualificatif(qq.getIdQualificatif());
+            qe.setOrdre(qq.getOrdre());
+            qe.setIntitule(qq.getIntitule());
+
+            questionEvaluationRepository.save(qe);
+        }
     }
 
 }

@@ -19,7 +19,6 @@ public class EvaluationMapper {
         e.setAnneeUniversitaire(dto.getAnneeUniversitaire());
         e.setCodeUe(dto.getCodeUe());
         e.setCodeEc(dto.getCodeEc());
-        e.setNoEvaluation(dto.getNoEvaluation());
         e.setDesignation(dto.getDesignation());
         e.setEtat(dto.getEtat() == null ? null : dto.getEtat().trim().toUpperCase());
         e.setPeriode(dto.getPeriode());
@@ -35,7 +34,6 @@ public class EvaluationMapper {
                 .anneeUniversitaire(e.getAnneeUniversitaire())
                 .codeUe(e.getCodeUe())
                 .codeEc(e.getCodeEc())
-                .noEvaluation(e.getNoEvaluation())
                 .designation(e.getDesignation())
                 .etat(e.getEtat())
                 .periode(e.getPeriode())

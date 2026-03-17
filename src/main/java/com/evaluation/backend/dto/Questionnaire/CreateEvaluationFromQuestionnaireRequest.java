@@ -1,7 +1,6 @@
-package com.evaluation.backend.dto.Evaluation;
+package com.evaluation.backend.dto.Questionnaire;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -9,7 +8,10 @@ import java.time.LocalDate;
 
 @Getter
 @Setter
-public class EvaluationRequestDTO {
+public class CreateEvaluationFromQuestionnaireRequest {
+
+    @NotNull
+    private Long idQuestionnaire;
 
     @NotBlank
     private String codeFormation;
@@ -25,14 +27,11 @@ public class EvaluationRequestDTO {
     @NotBlank
     private String designation;
 
-
-    @NotBlank
-    private String etat;
-
     private String periode;
 
     @NotNull
     private LocalDate debutReponse;
+
     @NotNull
     private LocalDate finReponse;
 }

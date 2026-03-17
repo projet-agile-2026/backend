@@ -21,3 +21,24 @@ server:
   port: 8083
   servlet:
     context-path: /
+
+#
+#spring:
+#  datasource:
+#    url: jdbc:oracle:thin:@//oracle21c_PA:1521/XEPDB1
+#    username: DOSI
+#    password: dosi
+#    driver-class-name: oracle.jdbc.OracleDriver
+#
+#  jpa:
+#    show-sql: true
+#    hibernate:
+#      ddl-auto: update
+#    database-platform: org.hibernate.dialect.OracleDialect
+#
+#  sql:
+#    init:
+#      mode: never
+#
+#server:
+#  port: 8080

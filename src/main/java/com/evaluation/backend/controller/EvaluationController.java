@@ -5,17 +5,22 @@ import com.evaluation.backend.dto.Droit.DroitResponseDTO;
 import com.evaluation.backend.dto.Droit.DroitTousRequestDTO;
 import com.evaluation.backend.dto.Evaluation.EvaluationRequestDTO;
 import com.evaluation.backend.dto.Evaluation.EvaluationResponseDTO;
+import com.evaluation.backend.dto.Questionnaire.CreateEvaluationFromQuestionnaireRequest;
+import com.evaluation.backend.dto.Statistiques.StatistiquesEvaluationDTO;
 import com.evaluation.backend.repository.AuthentificationRepository;
 import com.evaluation.backend.service.Evaluation.EvaluationPdfService;
 import com.evaluation.backend.service.Evaluation.EvaluationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import com.evaluation.backend.dto.Evaluation.*;
 import com.evaluation.backend.entity.Authentification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import com.evaluation.backend.dto.Question.QuestionWithQualificatifDTO;
 
 import java.util.List;
 import java.util.Map;
@@ -219,6 +224,18 @@ public class EvaluationController {
                                              @Valid @RequestBody DroitTousRequestDTO dto) {
         return service.donnerDroitATous(idEvaluation, dto);
     }
+    @GetMapping("/{id}/statistiques")
+    public ResponseEntity<StatistiquesEvaluationDTO> getStatistiques(@PathVariable Long id) {
+        return ResponseEntity.ok(service.getStatistiques(id));
+    }
+    @GetMapping("/{id}/export-pdf")
+    public ResponseEntity<byte[]> exportPdf(@PathVariable Long id) throws Exception {
+        byte[] pdf = service.generateStatistiquesPdf(id);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=statistiques.pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
+    }
 
 
     //Changer l'etat d'evaluation - Achraf EL AIDI IDRISSI
@@ -229,6 +246,58 @@ public class EvaluationController {
 
         String etat = payload.get("etat");
         return service.updateEtat(id, etat);
+    }
+    //ranya
+    @PutMapping("/{evaluationId}/rubriques/{rubriqueEvaluationId}/designation")
+    public ResponseEntity<RubriqueEvaluationDTO> updateDesignationRubrique(
+            @PathVariable Long evaluationId,
+            @PathVariable Long rubriqueEvaluationId,
+            @RequestBody Map<String, String> payload,
+            Authentication authentication) {
+
+        Long noEnseignant = getConnectedEnseignantId(authentication);
+        String designation = payload.get("designation");
+        RubriqueEvaluationDTO result = service.updateDesignationRubriqueEvaluation(
+                evaluationId, rubriqueEvaluationId, designation, noEnseignant);
+        return ResponseEntity.ok(result);
+    }
+    // ranya
+    @PutMapping("/{evaluationId}/rubriques/{rubriqueEvaluationId}/questions/{questionEvaluationId}/intitule")
+    public ResponseEntity<QuestionWithQualificatifDTO> updateIntituleQuestion(
+            @PathVariable Long evaluationId,
+            @PathVariable Long rubriqueEvaluationId,
+            @PathVariable Long questionEvaluationId,
+            @RequestBody Map<String, String> payload,
+            Authentication authentication) {
+
+        Long noEnseignant = getConnectedEnseignantId(authentication);
+        String intitule = payload.get("intitule");
+        return ResponseEntity.ok(service.updateIntituleQuestionEvaluation(
+                evaluationId, rubriqueEvaluationId, questionEvaluationId, intitule, noEnseignant));
+    }
+
+    @PutMapping("/{evaluationId}/rubriques/{rubriqueEvaluationId}/questions/{questionEvaluationId}/qualificatif")
+    public ResponseEntity<QuestionWithQualificatifDTO> updateQualificatifQuestion(
+            @PathVariable Long evaluationId,
+            @PathVariable Long rubriqueEvaluationId,
+            @PathVariable Long questionEvaluationId,
+            @RequestBody Map<String, Object> payload,
+            Authentication authentication) {
+
+        Long noEnseignant = getConnectedEnseignantId(authentication);
+        Long idQualificatif = Long.valueOf(payload.get("idQualificatif").toString());
+        return ResponseEntity.ok(service.updateQualificatifQuestionEvaluation(
+                evaluationId, rubriqueEvaluationId, questionEvaluationId, idQualificatif, noEnseignant));
+    }
+
+
+
+    @PostMapping("/from-questionnaire")
+    public EvaluationResponseDTO createFromQuestionnaire(
+            @Valid @RequestBody CreateEvaluationFromQuestionnaireRequest dto,
+            @RequestParam Long noEnseignant
+    ) {
+        return service.createFromQuestionnaire(dto, noEnseignant);
     }
 
 

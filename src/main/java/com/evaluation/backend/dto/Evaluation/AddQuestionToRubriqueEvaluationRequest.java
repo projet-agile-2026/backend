@@ -16,4 +16,7 @@ public class AddQuestionToRubriqueEvaluationRequest {
     private Long idQuestion;
 
     private Integer ordre;
+    private Long idQualificatif;
 }
+
+

@@ -44,7 +44,7 @@ public class Evaluation implements Serializable {
     @Column(name = "CODE_UE", nullable = false)
     private String codeUe;
 
-    @Column(name = "CODE_EC", nullable = false)
+    @Column(name = "CODE_EC")
     private String codeEc;
 
     @Column(name = "NO_EVALUATION")
@@ -56,13 +56,13 @@ public class Evaluation implements Serializable {
     @Column(name = "ETAT", nullable = false)
     private String etat;
 
-    @Column(name = "PERIODE", nullable = false)
+    @Column(name = "PERIODE")
     private String periode;
 
-    @Column(name = "DEBUT_REPONSE")
+    @Column(name = "DEBUT_REPONSE", nullable = false)
     private LocalDate debutReponse;
 
-    @Column(name = "FIN_REPONSE")
+    @Column(name = "FIN_REPONSE", nullable = false)
     private LocalDate finReponse;
 
 
