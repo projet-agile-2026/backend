@@ -20,7 +20,7 @@ public class QuestionWithQualificatifDTO implements Serializable {
     private Integer ordre;  // Set by RubriqueService (ordre within rubrique)
 
     // Helper
-    private Long idQuestionEvaluation;
+    private Long idQuestionQuestionnaire;
 
 
     // Qualificatif details

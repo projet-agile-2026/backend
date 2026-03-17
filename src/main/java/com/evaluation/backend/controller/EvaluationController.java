@@ -5,6 +5,7 @@ import com.evaluation.backend.dto.Droit.DroitResponseDTO;
 import com.evaluation.backend.dto.Droit.DroitTousRequestDTO;
 import com.evaluation.backend.dto.Evaluation.EvaluationRequestDTO;
 import com.evaluation.backend.dto.Evaluation.EvaluationResponseDTO;
+import com.evaluation.backend.dto.Questionnaire.CreateEvaluationFromQuestionnaireRequest;
 import com.evaluation.backend.dto.Statistiques.StatistiquesEvaluationDTO;
 import com.evaluation.backend.repository.AuthentificationRepository;
 import com.evaluation.backend.service.Evaluation.EvaluationService;
@@ -256,4 +257,12 @@ public class EvaluationController {
         return ResponseEntity.ok(result);
     }
 
+
+    @PostMapping("/from-questionnaire")
+    public EvaluationResponseDTO createFromQuestionnaire(
+            @Valid @RequestBody CreateEvaluationFromQuestionnaireRequest dto,
+            @RequestParam Long noEnseignant
+    ) {
+        return service.createFromQuestionnaire(dto, noEnseignant);
+    }
 }

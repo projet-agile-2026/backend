@@ -7,6 +7,8 @@ import com.evaluation.backend.dto.Evaluation.EvaluationRequestDTO;
 import com.evaluation.backend.dto.Evaluation.EvaluationResponseDTO;
 import com.evaluation.backend.dto.Evaluation.*;
 import java.util.List;
+
+import com.evaluation.backend.dto.Questionnaire.CreateEvaluationFromQuestionnaireRequest;
 import com.evaluation.backend.dto.Statistiques.StatistiquesEvaluationDTO;
 
 public interface EvaluationService {
@@ -83,4 +85,9 @@ public interface EvaluationService {
             Long rubriqueEvaluationId,
             String designation,
             Long noEnseignant);
+
+    EvaluationResponseDTO createFromQuestionnaire(
+            CreateEvaluationFromQuestionnaireRequest dto,
+            Long noEnseignant
+    );
 }

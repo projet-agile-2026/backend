@@ -4,6 +4,7 @@ import com.evaluation.backend.dto.Droit.DroitRequestDTO;
 import com.evaluation.backend.dto.Droit.DroitResponseDTO;
 import com.evaluation.backend.dto.Droit.DroitTousRequestDTO;
 import com.evaluation.backend.dto.Evaluation.*;
+import com.evaluation.backend.dto.Questionnaire.CreateEvaluationFromQuestionnaireRequest;
 import com.evaluation.backend.entity.*;
 import com.evaluation.backend.exception.BusinessException;
 import com.evaluation.backend.exception.ResourceNotFoundException;
@@ -69,6 +70,10 @@ public class EvaluationServiceImpl implements EvaluationService {
     private final QualificatifRepository    qualificatifRepository;
     private final QuestionRepository questionRepository;
 
+    private final QuestionnaireRepository questionnaireRepository;
+    private final RubriqueQuestionnaireRepository rubriqueQuestionnaireRepository;
+    private final QuestionQuestionnaireRepository questionQuestionnaireRepository;
+
 
 
 
@@ -103,6 +108,17 @@ public class EvaluationServiceImpl implements EvaluationService {
 
         Evaluation e = mapper.toEntity(dto);
         e.setNoEnseignant(noEnseignant);
+
+        Short maxNoEvaluation = repository.findMaxNoEvaluation(
+                dto.getAnneeUniversitaire(),
+                noEnseignant,
+                dto.getCodeFormation(),
+                dto.getCodeUe()
+        );
+
+        short nextNoEvaluation = (short) (maxNoEvaluation + 1);
+        e.setNoEvaluation(nextNoEvaluation);
+
         Evaluation saved = repository.save(e);
 
         return mapper.toResponse(saved);
@@ -193,7 +209,7 @@ public class EvaluationServiceImpl implements EvaluationService {
                     List<QuestionWithQualificatifDTO> questions = new ArrayList<>();
                     for (QuestionEvaluation qe : questionsEval) {
                         QuestionWithQualificatifDTO q = questionService.getQuestionWithQualificatifById(qe.getIdQuestion());
-                        q.setIdQuestionEvaluation(qe.getIdQuestionEvaluation());
+                        q.setIdQuestionQuestionnaire(qe.getIdQuestionEvaluation());
                         q.setOrdre(qe.getOrdre());
                         questions.add(q);
                     }
@@ -210,7 +226,7 @@ public class EvaluationServiceImpl implements EvaluationService {
                 for (QuestionEvaluation qe : questionsEval) {
                     QuestionWithQualificatifDTO q = questionService.getQuestionWithQualificatifById(qe.getIdQuestion());
                     q.setOrdre(qe.getOrdre());
-                    q.setIdQuestionEvaluation(qe.getIdQuestionEvaluation());
+                    q.setIdQuestionQuestionnaire(qe.getIdQuestionEvaluation());
                     questions.add(q);
                 }
                 dto.setQuestions(questions);
@@ -1022,6 +1038,101 @@ public class EvaluationServiceImpl implements EvaluationService {
         if (t<1.0/2) return q;
         if (t<2.0/3) return p+(q-p)*(2.0/3-t)*6;
         return p;
+    }
+
+    @Override
+    @Transactional
+    public EvaluationResponseDTO createFromQuestionnaire(
+            CreateEvaluationFromQuestionnaireRequest dto,
+            Long noEnseignant
+    ) {
+
+        Questionnaire questionnaire = questionnaireRepository
+                .findById(dto.getIdQuestionnaire())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Questionnaire introuvable"
+                ));
+
+        Evaluation e = new Evaluation();
+
+        e.setNoEnseignant(noEnseignant);
+        e.setCodeFormation(dto.getCodeFormation());
+        e.setAnneeUniversitaire(dto.getAnneeUniversitaire());
+        e.setCodeUe(dto.getCodeUe());
+        e.setCodeEc(dto.getCodeEc());
+        e.setDesignation(dto.getDesignation());
+        e.setPeriode(dto.getPeriode());
+        e.setEtat("ELA");
+        e.setDebutReponse(dto.getDebutReponse());
+        e.setFinReponse(dto.getFinReponse());
+
+        Short maxNoEvaluation = repository.findMaxNoEvaluation(
+                dto.getAnneeUniversitaire(),
+                noEnseignant,
+                dto.getCodeFormation(),
+                dto.getCodeUe()
+        );
+
+        short nextNoEvaluation = (short) (maxNoEvaluation + 1);
+        e.setNoEvaluation(nextNoEvaluation);
+
+        Evaluation savedEvaluation = repository.save(e);
+
+        copyQuestionnaireStructure(questionnaire, savedEvaluation);
+
+        return mapper.toResponse(savedEvaluation);
+    }
+
+    private void copyQuestionnaireStructure(
+            Questionnaire questionnaire,
+            Evaluation evaluation
+    ) {
+
+        List<RubriqueQuestionnaire> rubriques =
+                rubriqueQuestionnaireRepository
+                        .findByIdQuestionnaireOrderByOrdreAsc(
+                                questionnaire.getIdQuestionnaire()
+                        );
+
+        for (RubriqueQuestionnaire rq : rubriques) {
+
+            RubriqueEvaluation re = new RubriqueEvaluation();
+
+            re.setIdEvaluation(evaluation.getIdEvaluation());
+            re.setIdRubrique(rq.getIdRubrique());
+            re.setDesignation(rq.getDesignation());
+            re.setOrdre(rq.getOrdre());
+
+            RubriqueEvaluation savedRubrique =
+                    rubriqueEvaluationRepository.save(re);
+
+            copyQuestions(rq, savedRubrique);
+        }
+    }
+
+    private void copyQuestions(
+            RubriqueQuestionnaire rq,
+            RubriqueEvaluation re
+    ) {
+
+        List<QuestionQuestionnaire> questions =
+                questionQuestionnaireRepository
+                        .findByIdRubriqueQuestionnaireOrderByOrdreAsc(
+                                rq.getIdRubriqueQuestionnaire()
+                        );
+
+        for (QuestionQuestionnaire qq : questions) {
+
+            QuestionEvaluation qe = new QuestionEvaluation();
+
+            qe.setIdRubriqueEvaluation(re.getIdRubriqueEvaluation());
+            qe.setIdQuestion(qq.getIdQuestion());
+            qe.setIdQualificatif(qq.getIdQualificatif());
+            qe.setOrdre(qq.getOrdre());
+            qe.setIntitule(qq.getIntitule());
+
+            questionEvaluationRepository.save(qe);
+        }
     }
 
 }
