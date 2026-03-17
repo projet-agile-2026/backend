@@ -211,6 +211,16 @@ public class EvaluationServiceImpl implements EvaluationService {
                         QuestionWithQualificatifDTO q = questionService.getQuestionWithQualificatifById(qe.getIdQuestion());
                         q.setIdQuestionQuestionnaire(qe.getIdQuestionEvaluation());
                         q.setOrdre(qe.getOrdre());
+                        // ranya - conserver l'intitulé personnalisé
+                        q.setIntitule(qe.getIntitule() != null ? qe.getIntitule() : q.getIntitule());
+                        // ranya - conserver le qualificatif personnalisé
+                        if (qe.getIdQualificatif() != null) {
+                            qualificatifRepository.findById(qe.getIdQualificatif()).ifPresent(qual -> {
+                                q.setIdQualificatif(qual.getIdQualificatif());
+                                q.setMaximal(qual.getMaximal());
+                                q.setMinimal(qual.getMinimal());
+                            });
+                        }
                         questions.add(q);
                     }
                     dto.setQuestions(questions);
@@ -227,6 +237,17 @@ public class EvaluationServiceImpl implements EvaluationService {
                     QuestionWithQualificatifDTO q = questionService.getQuestionWithQualificatifById(qe.getIdQuestion());
                     q.setOrdre(qe.getOrdre());
                     q.setIdQuestionQuestionnaire(qe.getIdQuestionEvaluation());
+                    q.setIdQuestionQuestionnaire(qe.getIdQuestionEvaluation());
+                    // ranya - conserver l'intitulé personnalisé
+                    q.setIntitule(qe.getIntitule() != null ? qe.getIntitule() : q.getIntitule());
+                    // ranya - conserver le qualificatif personnalisé
+                    if (qe.getIdQualificatif() != null) {
+                        qualificatifRepository.findById(qe.getIdQualificatif()).ifPresent(qual -> {
+                            q.setIdQualificatif(qual.getIdQualificatif());
+                            q.setMaximal(qual.getMaximal());
+                            q.setMinimal(qual.getMinimal());
+                        });
+                    }
                     questions.add(q);
                 }
                 dto.setQuestions(questions);
@@ -394,6 +415,7 @@ public class EvaluationServiceImpl implements EvaluationService {
         QuestionEvaluation questionEvaluation = QuestionEvaluation.builder()
                 .idRubriqueEvaluation(rubriqueEvaluationId)
                 .idQuestion(request.getIdQuestion())
+                .idQualificatif(request.getIdQualificatif())
                 .ordre(ordre)
                 .build();
 
@@ -699,6 +721,83 @@ public class EvaluationServiceImpl implements EvaluationService {
                         "RubriqueEvaluation", "id", rubriqueEvaluationId));
     }
 
+    // ranya
+    @Override
+    public QuestionWithQualificatifDTO updateIntituleQuestionEvaluation(
+            Long evaluationId, Long rubriqueEvaluationId,
+            Long questionEvaluationId, String intitule, Long noEnseignant) {
+
+        Evaluation evaluation = repository.findById(evaluationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Evaluation introuvable : id=" + evaluationId));
+        if (!evaluation.getNoEnseignant().equals(noEnseignant))
+            throw new BusinessException("Vous n'avez pas le droit de modifier cette évaluation");
+
+        QuestionEvaluation qe = questionEvaluationRepository.findById(questionEvaluationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "QuestionEvaluation introuvable : id=" + questionEvaluationId));
+        if (!qe.getIdRubriqueEvaluation().equals(rubriqueEvaluationId))
+            throw new BusinessException("Cette question n'appartient pas à cette rubrique");
+
+        qe.setIntitule(intitule);
+        questionEvaluationRepository.save(qe);
+        log.info("Updated intitule of question evaluation {} to '{}'", questionEvaluationId, intitule);
+
+        return getByIdWithRubriques(evaluationId).getRubriques().stream()
+                .filter(r -> r.getIdRubriqueEvaluation().equals(rubriqueEvaluationId))
+                .flatMap(r -> r.getQuestions().stream())
+                .filter(q -> q.getIdQuestionQuestionnaire().equals(questionEvaluationId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "QuestionEvaluation", "id", questionEvaluationId));
+    }
+
+
+    // ranya
+    @Override
+    public QuestionWithQualificatifDTO updateQualificatifQuestionEvaluation(
+            Long evaluationId, Long rubriqueEvaluationId,
+            Long questionEvaluationId, Long idQualificatif, Long noEnseignant) {
+
+        System.out.println("=== updateQualificatif appelé");
+        System.out.println("=== evaluationId: " + evaluationId);
+        System.out.println("=== noEnseignant param: " + noEnseignant);
+
+        Evaluation evaluation = repository.findById(evaluationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Evaluation introuvable : id=" + evaluationId));
+
+        System.out.println("=== evaluation.noEnseignant: " + evaluation.getNoEnseignant());
+        System.out.println("=== equals: " + evaluation.getNoEnseignant().equals(noEnseignant));
+
+        if (!evaluation.getNoEnseignant().equals(noEnseignant))
+            throw new BusinessException("Vous n'avez pas le droit de modifier cette évaluation");
+
+        QuestionEvaluation qe = questionEvaluationRepository.findById(questionEvaluationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "QuestionEvaluation introuvable : id=" + questionEvaluationId));
+
+        System.out.println("=== qe.idRubriqueEvaluation: " + qe.getIdRubriqueEvaluation());
+        System.out.println("=== rubriqueEvaluationId param: " + rubriqueEvaluationId);
+        System.out.println("=== rubrique equals: " + qe.getIdRubriqueEvaluation().equals(rubriqueEvaluationId));
+
+        if (!qe.getIdRubriqueEvaluation().equals(rubriqueEvaluationId))
+            throw new BusinessException("Cette question n'appartient pas à cette rubrique");
+
+        //qe.setIdQualificatif(idQualificatif);
+        //questionEvaluationRepository.save(qe);
+        questionEvaluationRepository.updateQualificatifOnly(questionEvaluationId, idQualificatif);
+
+        log.info("Updated qualificatif of question evaluation {} to id={}", questionEvaluationId, idQualificatif);
+
+        return getByIdWithRubriques(evaluationId).getRubriques().stream()
+                .filter(r -> r.getIdRubriqueEvaluation().equals(rubriqueEvaluationId))
+                .flatMap(r -> r.getQuestions().stream())
+                .filter(q -> q.getIdQuestionQuestionnaire().equals(questionEvaluationId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "QuestionEvaluation", "id", questionEvaluationId));
+    }
     @Override
     @Transactional(readOnly = true)
     public StatistiquesEvaluationDTO getStatistiques(Long idEvaluation) {
@@ -1004,6 +1103,7 @@ public class EvaluationServiceImpl implements EvaluationService {
         document.close();
         return baos.toByteArray();
     }
+
     private void addMetaRow(PdfPTable t, String label, String val, Font bold, Font normal) {
         PdfPCell l = new PdfPCell(new Phrase(label, bold)); l.setPadding(3); t.addCell(l);
         PdfPCell v = new PdfPCell(new Phrase(val, normal)); v.setPadding(3); t.addCell(v);
