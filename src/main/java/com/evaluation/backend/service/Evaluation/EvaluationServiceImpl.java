@@ -508,22 +508,49 @@ public class EvaluationServiceImpl implements EvaluationService {
     @Override
     @Transactional(readOnly = true)
     public List<EvaluationResponseDTO> listEvaluationsPartagees() {
-
         Long noEnseignant = currentNoEnseignant();
         List<Droit> droits = DroitRepository.findByNoEnseignant(noEnseignant);
 
         return droits.stream()
-                .filter(d ->
-                        "O".equalsIgnoreCase(d.getConsultation()) ||
-                                "O".equalsIgnoreCase(d.getDuplication())
-                )
-                .map(d -> repository.findById(d.getIdEvaluation()).orElse(null))
+                .filter(d -> "O".equalsIgnoreCase(d.getConsultation())
+                        || "O".equalsIgnoreCase(d.getDuplication()))
+                .map(d -> {
+                    Evaluation e = repository.findById(d.getIdEvaluation()).orElse(null);
+                    if (e == null) return null;
+                    if (e.getNoEnseignant() != null && e.getNoEnseignant().equals(noEnseignant)) return null;
+
+                    // Récupérer nom/prénom du propriétaire
+                    String nom = null;
+                    String prenom = null;
+                    if (e.getNoEnseignant() != null) {
+                        var enseignant = EnseignantRepository.findById(e.getNoEnseignant().intValue());
+                        if (enseignant.isPresent()) {
+                            nom = enseignant.get().getNom();
+                            prenom = enseignant.get().getPrenom();
+                        }
+                    }
+
+                    return EvaluationResponseDTO.builder()
+                            .idEvaluation(e.getIdEvaluation())
+                            .noEnseignant(e.getNoEnseignant())
+                            .nomEnseignant(nom)
+                            .prenomEnseignant(prenom)
+                            .codeFormation(e.getCodeFormation())
+                            .anneeUniversitaire(e.getAnneeUniversitaire())
+                            .codeUe(e.getCodeUe())
+                            .codeEc(e.getCodeEc())
+                            .designation(e.getDesignation())
+                            .etat(e.getEtat())
+                            .periode(e.getPeriode())
+                            .debutReponse(e.getDebutReponse())
+                            .finReponse(e.getFinReponse())
+                            .consultation(d.getConsultation())
+                            .duplication(d.getDuplication())
+                            .build();
+                })
                 .filter(e -> e != null)
-                .filter(e -> e.getNoEnseignant() == null || !e.getNoEnseignant().equals(noEnseignant))
-                .map(mapper::toResponse)
                 .toList();
     }
-
     @Override
     public EvaluationResponseDTO dupliquerEvaluation(Long idEvaluation) {
 
