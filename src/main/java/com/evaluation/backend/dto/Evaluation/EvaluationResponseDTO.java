@@ -29,4 +29,8 @@ public class EvaluationResponseDTO {
     private LocalDate finReponse;
     
     private Boolean dejaRepondu;
+
+
+    private String consultation;  // "O" ou "N" — null si propriétaire
+    private String duplication;   // "O" ou "N" — null si propriétaire
 }

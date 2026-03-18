@@ -228,6 +228,9 @@ public class EvaluationServiceImpl implements EvaluationService {
                     dto.setQuestions(rubrique.getQuestions());
                 }
             } else {
+
+                dto.setDesignation(re.getDesignation());
+                dto.setType("SPECIFIQUE");
                 // Rubrique composée : récupérer les questions via QuestionEvaluation
                 List<QuestionEvaluation> questionsEval = questionEvaluationRepository
                         .findByIdRubriqueEvaluationOrderByOrdreAsc(re.getIdRubriqueEvaluation());
@@ -505,22 +508,49 @@ public class EvaluationServiceImpl implements EvaluationService {
     @Override
     @Transactional(readOnly = true)
     public List<EvaluationResponseDTO> listEvaluationsPartagees() {
-
         Long noEnseignant = currentNoEnseignant();
         List<Droit> droits = DroitRepository.findByNoEnseignant(noEnseignant);
 
         return droits.stream()
-                .filter(d ->
-                        "O".equalsIgnoreCase(d.getConsultation()) ||
-                                "O".equalsIgnoreCase(d.getDuplication())
-                )
-                .map(d -> repository.findById(d.getIdEvaluation()).orElse(null))
+                .filter(d -> "O".equalsIgnoreCase(d.getConsultation())
+                        || "O".equalsIgnoreCase(d.getDuplication()))
+                .map(d -> {
+                    Evaluation e = repository.findById(d.getIdEvaluation()).orElse(null);
+                    if (e == null) return null;
+                    if (e.getNoEnseignant() != null && e.getNoEnseignant().equals(noEnseignant)) return null;
+
+                    // Récupérer nom/prénom du propriétaire
+                    String nom = null;
+                    String prenom = null;
+                    if (e.getNoEnseignant() != null) {
+                        var enseignant = EnseignantRepository.findById(e.getNoEnseignant().intValue());
+                        if (enseignant.isPresent()) {
+                            nom = enseignant.get().getNom();
+                            prenom = enseignant.get().getPrenom();
+                        }
+                    }
+
+                    return EvaluationResponseDTO.builder()
+                            .idEvaluation(e.getIdEvaluation())
+                            .noEnseignant(e.getNoEnseignant())
+                            .nomEnseignant(nom)
+                            .prenomEnseignant(prenom)
+                            .codeFormation(e.getCodeFormation())
+                            .anneeUniversitaire(e.getAnneeUniversitaire())
+                            .codeUe(e.getCodeUe())
+                            .codeEc(e.getCodeEc())
+                            .designation(e.getDesignation())
+                            .etat(e.getEtat())
+                            .periode(e.getPeriode())
+                            .debutReponse(e.getDebutReponse())
+                            .finReponse(e.getFinReponse())
+                            .consultation(d.getConsultation())
+                            .duplication(d.getDuplication())
+                            .build();
+                })
                 .filter(e -> e != null)
-                .filter(e -> e.getNoEnseignant() == null || !e.getNoEnseignant().equals(noEnseignant))
-                .map(mapper::toResponse)
                 .toList();
     }
-
     @Override
     public EvaluationResponseDTO dupliquerEvaluation(Long idEvaluation) {
 
@@ -539,6 +569,7 @@ public class EvaluationServiceImpl implements EvaluationService {
             throw new BusinessException("Duplication interdite : vous n'avez pas le droit de duplication sur cette évaluation.");
         }
 
+        // Par :
         Evaluation copy = new Evaluation();
         copy.setIdEvaluation(null);
         copy.setNoEnseignant(noEnseignant);
@@ -553,17 +584,45 @@ public class EvaluationServiceImpl implements EvaluationService {
                 source.getCodeFormation(),
                 source.getCodeUe()
         );
-
         short nextNoEval = (short) ((maxNoEval != null ? maxNoEval : 0) + 1);
-
         copy.setNoEvaluation(nextNoEval);
         copy.setDesignation(source.getDesignation());
-        copy.setEtat(source.getEtat());
+        copy.setEtat("ELA");
         copy.setPeriode(source.getPeriode());
         copy.setDebutReponse(source.getDebutReponse());
         copy.setFinReponse(source.getFinReponse());
 
-        return mapper.toResponse(repository.save(copy));
+        Evaluation savedCopy = repository.save(copy);
+
+// Copier les rubriques et leurs questions
+        List<RubriqueEvaluation> rubriquesSource = rubriqueEvaluationRepository
+                .findByIdEvaluationOrderByOrdreAsc(idEvaluation);
+
+        for (RubriqueEvaluation re : rubriquesSource) {
+            RubriqueEvaluation newRe = RubriqueEvaluation.builder()
+                    .idEvaluation(savedCopy.getIdEvaluation())
+                    .idRubrique(re.getIdRubrique())
+                    .ordre(re.getOrdre())
+                    .designation(re.getDesignation())
+                    .build();
+
+            RubriqueEvaluation savedRe = rubriqueEvaluationRepository.save(newRe);
+
+            List<QuestionEvaluation> questionsSource = questionEvaluationRepository
+                    .findByIdRubriqueEvaluationOrderByOrdreAsc(re.getIdRubriqueEvaluation());
+
+            for (QuestionEvaluation qe : questionsSource) {
+                QuestionEvaluation newQe = QuestionEvaluation.builder()
+                        .idRubriqueEvaluation(savedRe.getIdRubriqueEvaluation())
+                        .idQuestion(qe.getIdQuestion())
+                        .ordre(qe.getOrdre())
+                        .build();
+                questionEvaluationRepository.save(newQe);
+            }
+        }
+
+        return mapper.toResponse(savedCopy);
+
     }
 
     @Override
@@ -751,6 +810,86 @@ public class EvaluationServiceImpl implements EvaluationService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "QuestionEvaluation", "id", questionEvaluationId));
     }
+
+    @Override
+    public RubriqueEvaluationDTO addRubriqueSpecifiqueToEvaluation(
+            Long evaluationId,
+            AddRubriqueSpecifiqueRequest request,
+            Long noEnseignant) {
+
+        Evaluation evaluation = repository.findById(evaluationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Evaluation introuvable : id=" + evaluationId));
+
+        if (!evaluation.getNoEnseignant().equals(noEnseignant)) {
+            throw new BusinessException(
+                    "Vous n'avez pas le droit de modifier cette évaluation");
+        }
+
+        Integer ordre = request.getOrdre();
+        if (ordre == null) {
+            Integer maxOrdre = rubriqueEvaluationRepository
+                    .findMaxOrdreByEvaluation(evaluationId);
+            ordre = maxOrdre == null ? 1 : maxOrdre + 1;
+        }
+
+        // idRubrique = null → rubrique spécifique à cette évaluation
+        RubriqueEvaluation re = RubriqueEvaluation.builder()
+                .idEvaluation(evaluationId)
+                .idRubrique(null)
+                .ordre(ordre)
+                .designation(request.getDesignation())
+                .build();
+
+        RubriqueEvaluation saved = rubriqueEvaluationRepository.save(re);
+
+        return RubriqueEvaluationDTO.builder()
+                .idRubriqueEvaluation(saved.getIdRubriqueEvaluation())
+                .idEvaluation(saved.getIdEvaluation())
+                .idRubrique(null)
+                .ordre(saved.getOrdre())
+                .designation(saved.getDesignation())
+                .type("SPECIFIQUE")
+                .questions(new ArrayList<>())
+                .build();
+    }
+
+
+    @Override
+    public RubriqueEvaluationDTO updateRubriqueSpecifique(
+            Long evaluationId,
+            Long rubriqueEvaluationId,
+            UpdateRubriqueSpecifiqueRequest request,
+            Long noEnseignant) {
+
+        Evaluation evaluation = repository.findById(evaluationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Evaluation introuvable : id=" + evaluationId));
+
+        if (!evaluation.getNoEnseignant().equals(noEnseignant)) {
+            throw new BusinessException(
+                    "Vous n'avez pas le droit de modifier cette évaluation");
+        }
+
+        RubriqueEvaluation re = rubriqueEvaluationRepository.findById(rubriqueEvaluationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "RubriqueEvaluation introuvable : id=" + rubriqueEvaluationId));
+
+        re.setDesignation(request.getDesignation());
+        RubriqueEvaluation saved = rubriqueEvaluationRepository.save(re);
+
+        return RubriqueEvaluationDTO.builder()
+                .idRubriqueEvaluation(saved.getIdRubriqueEvaluation())
+                .idEvaluation(saved.getIdEvaluation())
+                .idRubrique(null)
+                .ordre(saved.getOrdre())
+                .designation(saved.getDesignation())
+                .type("SPECIFIQUE")
+                .questions(new ArrayList<>())
+                .build();
+    }
+
+
 
 
     // ranya
@@ -952,152 +1091,183 @@ public class EvaluationServiceImpl implements EvaluationService {
                 .emailEnseignant(emailEnseignant)
                 .build();
     }
-
+    @Override
     public byte[] generateStatistiquesPdf(Long idEvaluation) throws Exception {
         StatistiquesEvaluationDTO stats = getStatistiques(idEvaluation);
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        Document document = new Document(PageSize.A4, 36, 36, 100, 60);
+        Document document = new Document(PageSize.A4, 36, 36, 90, 50);
         PdfWriter writer = PdfWriter.getInstance(document, baos);
 
-        Font bold = new Font(Font.FontFamily.HELVETICA, 11, Font.BOLD);
-        Font normal = new Font(Font.FontFamily.HELVETICA, 9, Font.NORMAL);
-        Font small = new Font(Font.FontFamily.HELVETICA, 8, Font.NORMAL);
+        // ── Polices ──────────────────────────────────────────────────────────────
+        BaseFont bfBold   = BaseFont.createFont(BaseFont.HELVETICA_BOLD,   BaseFont.CP1252, false);
+        BaseFont bfNormal = BaseFont.createFont(BaseFont.HELVETICA,        BaseFont.CP1252, false);
+
+        Font fBoldLg  = new Font(bfBold,   10, Font.BOLD);
+        Font fBoldMd  = new Font(bfBold,    8, Font.BOLD);
+        Font fNormal  = new Font(bfNormal,  8, Font.NORMAL);
+        Font fSmall   = new Font(bfNormal,  7, Font.NORMAL);
+        Font fMetaLbl = new Font(bfBold,    9, Font.BOLD);
+        Font fMetaVal = new Font(bfNormal,  9, Font.NORMAL);
+
+        // ── Couleurs ─────────────────────────────────────────────────────────────
+        BaseColor grayDark  = new BaseColor(170, 170, 170); // entête rubrique
+        BaseColor grayLight = new BaseColor(220, 220, 220); // sous-header colonnes
 
         String today = new java.text.SimpleDateFormat("dd MMMM yyyy", java.util.Locale.FRENCH)
                 .format(new java.util.Date());
         String email = stats.getEmailEnseignant() != null ? stats.getEmailEnseignant() : "";
 
-        // ── Header + Footer sur chaque page ──────────────────────────────────
+        // ── Header / Footer ──────────────────────────────────────────────────────
         writer.setPageEvent(new PdfPageEventHelper() {
-
-            private void drawHeader(PdfContentByte cb, Document doc) {
-                try {
-                    float pageWidth = doc.getPageSize().getWidth();
-                    float top = doc.getPageSize().getHeight() - 20;
-
-                    // Ligne 1 : M2DOSI | titre | année
-                    cb.setFontAndSize(BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.CP1252, false), 11);
-                    cb.beginText();
-                    cb.showTextAligned(Element.ALIGN_LEFT,  stats.getCodeFormation(), 36, top, 0);
-                    cb.showTextAligned(Element.ALIGN_CENTER, "Evaluation d'un enseignement", pageWidth / 2, top, 0);
-                    cb.showTextAligned(Element.ALIGN_RIGHT, stats.getAnneeUniversitaire(), pageWidth - 36, top, 0);
-                    cb.endText();
-
-                    // Ligne séparatrice
-                    cb.setLineWidth(0.5f);
-                    cb.moveTo(36, top - 6);
-                    cb.lineTo(pageWidth - 36, top - 6);
-                    cb.stroke();
-
-                    // Ligne 2 : UE | EC | Période (petite police)
-                    cb.setFontAndSize(BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, false), 8);
-                    cb.beginText();
-                    cb.showTextAligned(Element.ALIGN_LEFT,
-                            "UE: " + stats.getCodeUe() + "   EC: " + (stats.getCodeEc() != null ? stats.getCodeEc() : "—") + "   Période: " + (stats.getPeriode() != null ? stats.getPeriode() : "—"),
-                            36, top - 16, 0);
-                    cb.endText();
-
-                } catch (Exception ignored) {}
-            }
-
-            private void drawFooter(PdfContentByte cb, Document doc, int pageNumber) {
-                try {
-                    float pageWidth = doc.getPageSize().getWidth();
-                    float bottom = 20;
-
-                    cb.setLineWidth(0.3f);
-                    cb.moveTo(36, bottom + 10);
-                    cb.lineTo(pageWidth - 36, bottom + 10);
-                    cb.stroke();
-
-                    cb.setFontAndSize(BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, false), 8);
-                    cb.beginText();
-                    cb.showTextAligned(Element.ALIGN_LEFT, email + "  —  " + today, 36, bottom, 0);
-                    cb.showTextAligned(Element.ALIGN_RIGHT, "Page " + pageNumber, pageWidth - 36, bottom, 0);
-                    cb.endText();
-
-                } catch (Exception ignored) {}
-            }
 
             @Override
             public void onEndPage(PdfWriter w, Document doc) {
                 PdfContentByte cb = w.getDirectContent();
-                drawHeader(cb, doc);
-                drawFooter(cb, doc, w.getPageNumber());
+                float pw   = doc.getPageSize().getWidth();
+                float top  = doc.getPageSize().getHeight() - 18;
+
+                try {
+                    // — ligne 1 : formation | titre | année —
+                    cb.setFontAndSize(bfBold, 11);
+                    cb.beginText();
+                    cb.showTextAligned(Element.ALIGN_LEFT,   stats.getCodeFormation(),          36,        top, 0);
+                    cb.showTextAligned(Element.ALIGN_CENTER, "Evaluation d'un enseignement",    pw / 2f,   top, 0);
+                    cb.showTextAligned(Element.ALIGN_RIGHT,  stats.getAnneeUniversitaire(),     pw - 36,   top, 0);
+                    cb.endText();
+
+                    cb.setLineWidth(0.5f);
+                    cb.moveTo(36, top - 5); cb.lineTo(pw - 36, top - 5); cb.stroke();
+
+                    // — ligne 2 : UE / EC / Période —
+                    cb.setFontAndSize(bfNormal, 7.5f);
+                    cb.beginText();
+                    cb.showTextAligned(Element.ALIGN_LEFT,
+                            "UE: " + nvl(stats.getCodeUe()) +
+                                    "   EC: " + nvl(stats.getCodeEc()) +
+                                    "   Période: " + nvl(stats.getPeriode()),
+                            36, top - 16, 0);
+                    cb.endText();
+
+                    // — footer —
+                    cb.setLineWidth(0.3f);
+                    cb.moveTo(36, 28); cb.lineTo(pw - 36, 28); cb.stroke();
+
+                    cb.setFontAndSize(bfNormal, 7.5f);
+                    cb.beginText();
+                    cb.showTextAligned(Element.ALIGN_LEFT,  email + "  \u2014  " + today, 36,       16, 0);
+                    cb.showTextAligned(Element.ALIGN_RIGHT, "Page " + w.getPageNumber(),   pw - 36,  16, 0);
+                    cb.endText();
+
+                } catch (Exception ignored) {}
             }
         });
 
         document.open();
 
-        // ── Métadonnées (première page seulement) ────────────────────────────
+        // ── Bloc métadonnées ─────────────────────────────────────────────────────
         PdfPTable meta = new PdfPTable(2);
         meta.setWidthPercentage(55);
         meta.setHorizontalAlignment(Element.ALIGN_LEFT);
-        meta.setWidths(new float[]{3f, 3f});
-        meta.setSpacingBefore(10f);
-        addMetaRow(meta, "Unité d'Enseignement", stats.getCodeUe(), bold, normal);
-        addMetaRow(meta, "Elément Constitutif", stats.getCodeEc() != null ? stats.getCodeEc() : "—", bold, normal);
-        addMetaRow(meta, "Période", stats.getPeriode() != null ? stats.getPeriode() : "—", bold, normal);
+        meta.setWidths(new float[]{3.8f, 3f});
+        meta.setSpacingBefore(6f);
+        meta.setSpacingAfter(10f);
+        addMetaRow(meta, "Unité d'Enseignement", nvl(stats.getCodeUe()),  fMetaLbl, fMetaVal);
+        addMetaRow(meta, "Elément Constitutif",  nvl(stats.getCodeEc()),  fMetaLbl, fMetaVal);
+        addMetaRow(meta, "Période",              nvl(stats.getPeriode()), fMetaLbl, fMetaVal);
         document.add(meta);
-        document.add(Chunk.NEWLINE);
 
-        // ── Rubriques ────────────────────────────────────────────────────────
+        // ── Largeurs des colonnes ─────────────────────────────────────────────────
+        // [intitulé | minimum | 1 | 2 | 3 | 4 | 5 | maximum | moyen]
+        float[] colWidths = {5.0f, 2.2f, 0.7f, 0.7f, 0.7f, 0.7f, 0.7f, 2.2f, 1.3f};
+        int NCOLS = colWidths.length;
+
+        // ── Header global unique (Minimum / Moyen / Maximum) ─────────────────────
+        PdfPTable globalHeader = new PdfPTable(NCOLS);
+        globalHeader.setWidthPercentage(100);
+        globalHeader.setWidths(colWidths);
+        globalHeader.setSpacingBefore(4f);
+
+        globalHeader.addCell(makeSubHeader("",        fSmall, BaseColor.WHITE, Element.ALIGN_LEFT));
+        globalHeader.addCell(makeSubHeader("Minimum", fSmall, BaseColor.WHITE, Element.ALIGN_CENTER));
+        for (int i = 0; i < 5; i++)
+            globalHeader.addCell(makeSubHeader("", fSmall, BaseColor.WHITE, Element.ALIGN_CENTER));
+        globalHeader.addCell(makeSubHeader("Maximum", fSmall, BaseColor.WHITE, Element.ALIGN_CENTER));
+        globalHeader.addCell(makeSubHeader("Moyenne",   fSmall, BaseColor.WHITE, Element.ALIGN_CENTER));
+        document.add(globalHeader);
+
+        // ── Rubriques ─────────────────────────────────────────────────────────────
         for (RubriqueStatDTO rubrique : stats.getRubriques()) {
-            PdfPTable table = new PdfPTable(9);
+
+            PdfPTable table = new PdfPTable(NCOLS);
             table.setWidthPercentage(100);
-            table.setWidths(new float[]{5f, 2.5f, 1f, 1f, 1f, 1f, 1f, 2.5f, 1.5f});
-            table.setSpacingBefore(8f);
-            table.setKeepTogether(true); // ← ne pas couper une rubrique
+            table.setWidths(colWidths);
+            table.setSpacingBefore(4f);
+            table.setSplitLate(false);
+            table.setKeepTogether(false);
 
-            // Titre rubrique
-            PdfPCell rubCell = new PdfPCell(new Phrase(rubrique.getDesignation(), bold));
-            rubCell.setColspan(9);
-            rubCell.setBackgroundColor(new BaseColor(170, 170, 170));
-            rubCell.setPadding(4);
-            table.addCell(rubCell);
+            // — Titre rubrique avec 1 2 3 4 5 intégrés —
+            PdfPCell rubTitle = new PdfPCell(new Phrase(rubrique.getDesignation(), fBoldLg));
+            rubTitle.setColspan(2); // intitulé + colonne minimum fusionnés
+            rubTitle.setBackgroundColor(grayDark);
+            rubTitle.setPadding(4);
+            rubTitle.setBorderColor(BaseColor.GRAY);
+            table.addCell(rubTitle);
 
-            // Sous-header
-            table.addCell(makeHeaderCell("", bold));
-            table.addCell(makeHeaderCell("Minimum", small));
-            for (String n : new String[]{"1","2","3","4","5"})
-                table.addCell(makeHeaderCell(n, bold));
-            table.addCell(makeHeaderCell("Maximum", small));
-            table.addCell(makeHeaderCell("Moyen", small));
+            for (String n : new String[]{"1","2","3","4","5"}) {
+                PdfPCell nc = new PdfPCell(new Phrase(n, fBoldMd));
+                nc.setBackgroundColor(grayDark);
+                nc.setHorizontalAlignment(Element.ALIGN_CENTER);
+                nc.setPadding(4);
+                nc.setBorderColor(BaseColor.GRAY);
+                table.addCell(nc);
+            }
 
-            // Questions
+            PdfPCell emptyMax = new PdfPCell(new Phrase(""));
+            emptyMax.setBackgroundColor(grayDark);
+            emptyMax.setBorderColor(BaseColor.GRAY);
+            table.addCell(emptyMax);
+
+            PdfPCell emptyMoy = new PdfPCell(new Phrase(""));
+            emptyMoy.setBackgroundColor(grayDark);
+            emptyMoy.setBorderColor(BaseColor.GRAY);
+            table.addCell(emptyMoy);
+
+            // — Lignes questions —
             for (QuestionStatDTO q : rubrique.getQuestions()) {
-                table.addCell(makeCell(q.getIntitule(), normal, Element.ALIGN_LEFT));
-                table.addCell(makeCell(q.getMinimal(), normal, Element.ALIGN_LEFT));
-                table.addCell(makeCell(str(q.getNb1()), normal, Element.ALIGN_CENTER));
-                table.addCell(makeCell(str(q.getNb2()), normal, Element.ALIGN_CENTER));
-                table.addCell(makeCell(str(q.getNb3()), normal, Element.ALIGN_CENTER));
-                table.addCell(makeCell(str(q.getNb4()), normal, Element.ALIGN_CENTER));
-                table.addCell(makeCell(str(q.getNb5()), normal, Element.ALIGN_CENTER));
-                table.addCell(makeCell(q.getMaximal(), normal, Element.ALIGN_LEFT));
-
-                PdfPCell moyCell = new PdfPCell(new Phrase(
-                        q.getMoyenne() != null ? String.format("%.1f", q.getMoyenne()) : "—", bold));
-                moyCell.setHorizontalAlignment(Element.ALIGN_CENTER);
-                moyCell.setPadding(3);
-                if (q.getMoyenne() != null) moyCell.setBackgroundColor(moyenneColor(q.getMoyenne()));
-                table.addCell(moyCell);
+                // Intitulé
+                table.addCell(makeDataCell(q.getIntitule(), fNormal, Element.ALIGN_LEFT, false));
+                // Minimum (qualificatif bas)
+                table.addCell(makeDataCell(q.getMinimal(), fNormal, Element.ALIGN_LEFT, false));
+                // 1..5
+                table.addCell(makeDataCell(str(q.getNb1()), fNormal, Element.ALIGN_CENTER, false));
+                table.addCell(makeDataCell(str(q.getNb2()), fNormal, Element.ALIGN_CENTER, false));
+                table.addCell(makeDataCell(str(q.getNb3()), fNormal, Element.ALIGN_CENTER, false));
+                table.addCell(makeDataCell(str(q.getNb4()), fNormal, Element.ALIGN_CENTER, false));
+                table.addCell(makeDataCell(str(q.getNb5()), fNormal, Element.ALIGN_CENTER, false));
+                // Maximum (qualificatif haut)
+                table.addCell(makeDataCell(q.getMaximal(), fNormal, Element.ALIGN_LEFT, false));
+                // Moyen — gras, pas de couleur
+                String moy = q.getMoyenne() != null ? String.format("%.1f", q.getMoyenne()) : "—";
+                table.addCell(makeDataCell(moy, fBoldMd, Element.ALIGN_CENTER, false));
             }
 
             document.add(table);
         }
 
-        // ── Commentaires ─────────────────────────────────────────────────────
+        // ── Section Commentaires ─────────────────────────────────────────────────
         PdfPTable comm = new PdfPTable(1);
         comm.setWidthPercentage(100);
         comm.setSpacingBefore(10f);
         comm.setKeepTogether(true);
-        PdfPCell commHead = new PdfPCell(new Phrase("Commentaires", bold));
-        commHead.setBackgroundColor(new BaseColor(170, 170, 170));
+
+        PdfPCell commHead = new PdfPCell(new Phrase("Commentaires", fBoldLg));
+        commHead.setBackgroundColor(grayDark);
         commHead.setPadding(4);
         comm.addCell(commHead);
+
         PdfPCell commBody = new PdfPCell(new Phrase(" "));
-        commBody.setMinimumHeight(50f);
+        commBody.setMinimumHeight(60f);
         comm.addCell(commBody);
         document.add(comm);
 
@@ -1105,41 +1275,51 @@ public class EvaluationServiceImpl implements EvaluationService {
         return baos.toByteArray();
     }
 
-    private void addMetaRow(PdfPTable t, String label, String val, Font bold, Font normal) {
-        PdfPCell l = new PdfPCell(new Phrase(label, bold)); l.setPadding(3); t.addCell(l);
-        PdfPCell v = new PdfPCell(new Phrase(val, normal)); v.setPadding(3); t.addCell(v);
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+    private String nvl(String s) {
+        return s != null ? s : "—";
     }
 
-    private PdfPCell makeCell(String text, Font font, int align) {
-        PdfPCell c = new PdfPCell(new Phrase(text != null ? text : "—", font));
-        c.setHorizontalAlignment(align); c.setPadding(3); return c;
+    private void addMetaRow(PdfPTable t, String label, String val, Font fLbl, Font fVal) {
+        PdfPCell l = new PdfPCell(new Phrase(label, fLbl));
+        l.setPadding(3); l.setBorderColor(BaseColor.GRAY);
+        t.addCell(l);
+        PdfPCell v = new PdfPCell(new Phrase(val, fVal));
+        v.setPadding(3); v.setBorderColor(BaseColor.GRAY);
+        t.addCell(v);
     }
 
-    private PdfPCell makeHeaderCell(String text, Font font) {
+    /**
+     * Cellule sous-header (ligne "Minimum  1  2  3  4  5  Maximum  Moyen")
+     */
+    private PdfPCell makeSubHeader(String text, Font font, BaseColor bg, int align) {
         PdfPCell c = new PdfPCell(new Phrase(text, font));
-        c.setBackgroundColor(new BaseColor(210, 210, 210));
-        c.setHorizontalAlignment(Element.ALIGN_CENTER); c.setPadding(3); return c;
+        c.setBackgroundColor(bg);
+        c.setHorizontalAlignment(align);
+        c.setPaddingTop(2); c.setPaddingBottom(2);
+        c.setPaddingLeft(3); c.setPaddingRight(3);
+        c.setBorderColor(BaseColor.GRAY);
+        return c;
+    }
+
+    /**
+     * Cellule de données standard
+     */
+    private PdfPCell makeDataCell(String text, Font font, int align, boolean shaded) {
+        PdfPCell c = new PdfPCell(new Phrase(text != null ? text : "—", font));
+        c.setHorizontalAlignment(align);
+        c.setPaddingTop(2); c.setPaddingBottom(2);
+        c.setPaddingLeft(3); c.setPaddingRight(3);
+        c.setBorderColor(BaseColor.GRAY);
+        if (shaded) c.setBackgroundColor(new BaseColor(245, 245, 245));
+        return c;
     }
 
     private String str(Long v) { return v != null ? String.valueOf(v) : "0"; }
 
-    private BaseColor moyenneColor(double m) {
-        double ratio = Math.max(0, Math.min(1, (m - 1) / 4.0));
-        double h = ratio * 120.0 / 360.0, s = 0.75, l = 0.40;
-        double q = l < 0.5 ? l*(1+s) : l+s-l*s, p = 2*l-q;
-        return new BaseColor(
-                (int)(h2rgb(p,q,h+1.0/3)*255),
-                (int)(h2rgb(p,q,h)*255),
-                (int)(h2rgb(p,q,h-1.0/3)*255));
-    }
 
-    private double h2rgb(double p, double q, double t) {
-        if (t<0) t+=1; if (t>1) t-=1;
-        if (t<1.0/6) return p+(q-p)*6*t;
-        if (t<1.0/2) return q;
-        if (t<2.0/3) return p+(q-p)*(2.0/3-t)*6;
-        return p;
-    }
+
 
     @Override
     @Transactional

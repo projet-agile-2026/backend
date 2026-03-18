@@ -24,7 +24,6 @@ public interface EvaluationService {
 
     EvaluationResponseDTO update(Long id, EvaluationRequestDTO dto);
 
-
     void delete(Long id);
 
     List<String> getFormations();
@@ -69,6 +68,7 @@ public interface EvaluationService {
     DroitResponseDTO donnerDroitATous(Long idEvaluation, DroitTousRequestDTO dto);
 
 
+
     List<String> getAnneesUniversitaires(String codeFormation);
 
     //Statistiques
@@ -93,6 +93,21 @@ public interface EvaluationService {
             Long questionEvaluationId,
             String intitule,
             Long noEnseignant);
+
+
+    RubriqueEvaluationDTO addRubriqueSpecifiqueToEvaluation(
+            Long evaluationId,
+            AddRubriqueSpecifiqueRequest request,
+            Long noEnseignant
+    );
+
+
+    RubriqueEvaluationDTO updateRubriqueSpecifique(
+            Long evaluationId,
+            Long rubriqueEvaluationId,
+            UpdateRubriqueSpecifiqueRequest request,
+            Long noEnseignant
+    );
 
     QuestionWithQualificatifDTO updateQualificatifQuestionEvaluation(
             Long evaluationId,
