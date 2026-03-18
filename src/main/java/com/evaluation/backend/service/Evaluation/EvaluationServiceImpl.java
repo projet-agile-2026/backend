@@ -937,6 +937,7 @@ public class EvaluationServiceImpl implements EvaluationService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "QuestionEvaluation", "id", questionEvaluationId));
     }
+
     @Override
     @Transactional(readOnly = true)
     public StatistiquesEvaluationDTO getStatistiques(Long idEvaluation) {
