@@ -5,5 +5,6 @@ public record UserInfoDTO(
     String role,
     String nom,
     String prenom,
-    String email
+    String email,
+    Long noEnseignant
 ) {}
