@@ -935,8 +935,9 @@ public class EvaluationServiceImpl implements EvaluationService {
             table.setWidthPercentage(100);
             table.setWidths(colWidths);
             table.setSpacingBefore(4f);
-            table.setSplitLate(false);
-            table.setKeepTogether(false);
+            table.setSplitLate(true);
+            table.setKeepTogether(true);
+            table.setSplitRows(false);
 
             // — Titre rubrique avec 1 2 3 4 5 intégrés —
             PdfPCell rubTitle = new PdfPCell(new Phrase(rubrique.getDesignation(), fBoldLg));
