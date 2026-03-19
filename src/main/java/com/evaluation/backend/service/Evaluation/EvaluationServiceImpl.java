@@ -805,12 +805,10 @@ public class EvaluationServiceImpl implements EvaluationService {
         return getByIdWithRubriques(evaluationId).getRubriques().stream()
                 .filter(r -> r.getIdRubriqueEvaluation().equals(rubriqueEvaluationId))
                 .flatMap(r -> r.getQuestions().stream())
-                .filter(q -> q.getIdQuestionQuestionnaire().equals(questionEvaluationId))
+                .filter(q -> q.getIdQuestionEvaluation().equals(questionEvaluationId))  // ✅
                 .findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "QuestionEvaluation", "id", questionEvaluationId));
-    }
-
+                        "QuestionEvaluation", "id", questionEvaluationId));}
     @Override
     public RubriqueEvaluationDTO addRubriqueSpecifiqueToEvaluation(
             Long evaluationId,
@@ -933,6 +931,7 @@ public class EvaluationServiceImpl implements EvaluationService {
                 .filter(r -> r.getIdRubriqueEvaluation().equals(rubriqueEvaluationId))
                 .flatMap(r -> r.getQuestions().stream())
                 .filter(q -> q.getIdQuestionQuestionnaire().equals(questionEvaluationId))
+                .filter(q -> q.getIdQuestionEvaluation().equals(questionEvaluationId))  // ✅
                 .findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "QuestionEvaluation", "id", questionEvaluationId));
