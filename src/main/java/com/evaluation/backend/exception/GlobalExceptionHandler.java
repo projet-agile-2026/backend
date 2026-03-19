@@ -205,9 +205,7 @@ public class GlobalExceptionHandler {
         }
 
         // Fallback
-        return buildError(HttpStatus.INTERNAL_SERVER_ERROR,
-                "Une erreur inattendue s'est produite : " + msg,
-                request);
+        return buildError(HttpStatus.INTERNAL_SERVER_ERROR, msg, request);
     }
 
     // =========================================================
