@@ -67,7 +67,8 @@ public class AuthController {
             user.getRole(),
             nom,
             prenom,
-            user.getEmail()
+            user.getEmail(),
+                user.getEnseignant() != null ? user.getEnseignant().getId().longValue() : null
         );
     }
 
