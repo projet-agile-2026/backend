@@ -209,7 +209,7 @@ public class EvaluationServiceImpl implements EvaluationService {
                     List<QuestionWithQualificatifDTO> questions = new ArrayList<>();
                     for (QuestionEvaluation qe : questionsEval) {
                         QuestionWithQualificatifDTO q = questionService.getQuestionWithQualificatifById(qe.getIdQuestion());
-                        q.setIdQuestionQuestionnaire(qe.getIdQuestionEvaluation());
+                        q.setIdQuestionEvaluation(qe.getIdQuestionEvaluation());
                         q.setOrdre(qe.getOrdre());
                         // ranya - conserver l'intitulé personnalisé
                         q.setIntitule(qe.getIntitule() != null ? qe.getIntitule() : q.getIntitule());
@@ -239,8 +239,8 @@ public class EvaluationServiceImpl implements EvaluationService {
                 for (QuestionEvaluation qe : questionsEval) {
                     QuestionWithQualificatifDTO q = questionService.getQuestionWithQualificatifById(qe.getIdQuestion());
                     q.setOrdre(qe.getOrdre());
-                    q.setIdQuestionQuestionnaire(qe.getIdQuestionEvaluation());
-                    q.setIdQuestionQuestionnaire(qe.getIdQuestionEvaluation());
+                    q.setIdQuestionEvaluation(qe.getIdQuestionEvaluation());
+                    q.setIdQuestionEvaluation(qe.getIdQuestionEvaluation());
                     // ranya - conserver l'intitulé personnalisé
                     q.setIntitule(qe.getIntitule() != null ? qe.getIntitule() : q.getIntitule());
                     // ranya - conserver le qualificatif personnalisé

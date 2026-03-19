@@ -22,6 +22,8 @@ public class QuestionWithQualificatifDTO implements Serializable {
     // Helper
     private Long idQuestionQuestionnaire;
 
+    private Long idQuestionEvaluation;
+
 
     // Qualificatif details
     private Long idQualificatif;
