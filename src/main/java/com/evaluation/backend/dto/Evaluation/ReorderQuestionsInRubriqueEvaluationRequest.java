@@ -24,7 +24,7 @@ public class ReorderQuestionsInRubriqueEvaluationRequest {
     @AllArgsConstructor
     public static class QuestionEvaluationOrder {
         @NotNull(message = "Question Evaluation ID is required")
-        private Long idQuestionEvaluation;
+            private Long idQuestionEvaluation;
 
         @NotNull(message = "Ordre is required")
         private Integer ordre;

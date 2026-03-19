@@ -171,10 +171,17 @@ public class QuestionnaireServiceImpl implements QuestionnaireService {
             ordre = maxOrdre == null ? 1 : maxOrdre + 1;
         }
 
+        QuestionWithQualificatifDTO q =
+                questionService.getQuestionWithQualificatifById(request.getIdQuestion());
+
+        Long qualifId = request.getIdQualificatif() != null
+                ? request.getIdQualificatif()
+                : q.getIdQualificatif();
+
         QuestionQuestionnaire qq = QuestionQuestionnaire.builder()
                 .idRubriqueQuestionnaire(rubriqueQuestionnaireId)
                 .idQuestion(request.getIdQuestion())
-                .idQualificatif(request.getIdQualificatif())
+                .idQualificatif(qualifId)
                 .ordre(ordre)
                 .build();
 
